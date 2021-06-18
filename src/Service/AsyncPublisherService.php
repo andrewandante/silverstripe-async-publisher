@@ -13,7 +13,7 @@ class AsyncPublisherService
     use Configurable;
 
     private static $dependencies = [
-        'formDataCache' => '%$' . CacheInterface::class . '.CMSMain_AsyncPublisher',
+        'FormDataCache' => '%$' . CacheInterface::class . '.CMSMain_AsyncPublisher',
     ];
 
     /**
@@ -33,26 +33,38 @@ class AsyncPublisherService
      */
     protected $formDataCache;
 
-    public function cacheFormSubmission($data, Form $form)
+    public function cacheFormSubmission($record, Form $form)
     {
-        $signature = $this->generateSignature($data, $form);
-        $this->formDataCache->set($signature, $form, $this->config->get('cache_ttl'));
+        $signature = self::generateSignature($record);
+        $cachettl = $this->config()->get('cache_ttl');
+        $this->formDataCache->set($signature, $form->getData(), $cachettl);
 
-        return $this->formDataCache->get($signature);
+        return $signature;
     }
 
     public function getFormSubmissionBySignature(string $signature)
     {
-        return $this->formDataCache->get($signature);
+        return Form::create()->loadDataFrom($this->formDataCache->get($signature));
     }
 
-    public function generateSignature($data, Form $form)
+    public static function generateSignature($record)
     {
-        return md5(sprintf("%s-%s", json_encode($data), $form->getHTMLID()));
+        return md5(sprintf("%s-%s", $record->ID, $record->ClassName));
     }
 
     public function getFormDataCache()
     {
         return $this->formDataCache;
+    }
+
+    /**
+     * @param CacheInterface $cache
+     * @return $this
+     */
+    public function setFormDataCache(CacheInterface $cache)
+    {
+        $this->formDataCache = $cache;
+
+        return $this;
     }
 }

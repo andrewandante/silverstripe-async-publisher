@@ -13,8 +13,17 @@ use SilverStripe\ORM\DataObject;
 use SilverStripe\Security\Security;
 use Symbiote\QueuedJobs\Services\QueuedJobService;
 
-class CMSMainExtension extends Extension
+class AsyncCMSMain extends Extension
 {
+    private static $allowed_actions = [
+        'async_publish',
+    ];
+
+    public function async_publish($data, $form)
+    {
+        $data['publish'] = 1;
+        return $this->save($data, $form);
+    }
     /**
      * Save and Publish page handler
      * Need to catch this before it hits the loop or we'll be in trouble
@@ -26,7 +35,28 @@ class CMSMainExtension extends Extension
      */
     public function save($data, $form)
     {
-        $job = new AsyncDoSaveJob($data, $form, Controller::curr(), $this->owner->record);
+        $className = $this->owner->config()->get('tree_class');
+
+        // Existing or new record?
+        $id = $data['ID'];
+        if (substr($id, 0, 3) != 'new') {
+            /** @var SiteTree $record */
+            $record = DataObject::get_by_id($className, $id);
+            // Check edit permissions
+            if ($record && !$record->canEdit()) {
+                return Security::permissionFailure($this);
+            }
+            if (!$record || !$record->ID) {
+                throw new HTTPResponse_Exception("Bad record ID #$id", 404);
+            }
+        } else {
+            if (!$className::singleton()->canCreate()) {
+                return Security::permissionFailure($this);
+            }
+            $record = $this->owner->getNewItem($id, false);
+        }
+
+        $job = AsyncDoSaveJob::create($data, $form, Controller::curr(), $record);
         QueuedJobService::singleton()->queueJob($job);
         if (!empty($data['publish'])) {
             $message = _t(
@@ -107,7 +137,6 @@ class CMSMainExtension extends Extension
             );
         }
 
-        $this->owner->getResponse()->addHeader('X-Status', rawurlencode($message));
-        return $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
+        return $message;
     }
 }

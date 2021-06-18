@@ -2,8 +2,14 @@
 
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Extension;
 
-use SilverStripe\Core\ClassInfo;
+use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncDoSaveJob;
+use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncPublishJob;
+use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
+use SilverStripe\Control\Director;
 use SilverStripe\Core\Extension;
+use SilverStripe\Forms\CompositeField;
+use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\FormAction;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBDatetime;
 use SilverStripe\Versioned\ChangeSet;
@@ -14,16 +20,32 @@ use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class AsyncPublisherExtension extends Extension
 {
+    public function updateCMSActions(FieldList $actions)
+    {
+        /** @var CompositeField $majorActions */
+        $majorActions = $actions->fieldByName('MajorActions');
+        if ($majorActions->fieldByName('action_publish') !== null) {
+            $majorActions->removeByName('action_publish');
+            $majorActions->push(
+                FormAction::create('async_publish', _t(__CLASS__ . '.BUTTONASYNCPUBLISHED', 'Published'))
+                    ->addExtraClass('btn-outline-primary font-icon-tick')
+                    ->setAttribute('data-btn-alternate-add', 'btn-primary font-icon-rocket')
+                    ->setAttribute('data-btn-alternate-remove', 'btn-outline-primary font-icon-tick')
+                    ->setUseButtonTag(true)
+                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish'))
+            );
+        }
+    }
 
     public function publishSingle()
     {
-        $publishJob = new PublishJob($this->owner, Versioned::LIVE, false);
+        $publishJob = new AsyncPublishJob($this->owner, Versioned::LIVE, false);
         QueuedJobService::singleton()->queueJob($publishJob);
     }
 
     public function publishRecursive()
     {
-        $publishJob = new PublishJob($this->owner, Versioned::LIVE, true);
+        $publishJob = new AsyncPublishJob($this->owner, Versioned::LIVE, true);
         QueuedJobService::singleton()->queueJob($publishJob);
     }
 
@@ -85,19 +107,38 @@ class AsyncPublisherExtension extends Extension
         });
     }
 
-    public function canPublish($member = null)
+    public function canEdit($member = null)
     {
         if (QueuedJobDescriptor::get()->filter([
-            'Implementation' => PublishJob::class,
-            'Signature' => md5(sprintf('%s-%s', $this->owner->ID, ClassInfo::class_name($this->owner))),
+            'Implementation' => AsyncDoSaveJob::class,
+            'Signature' => AsyncPublisherService::generateSignature($this->owner),
             'JobStatus' => [
                 QueuedJob::STATUS_NEW,
                 QueuedJob::STATUS_INIT,
-                QueuedJob::STATUS_RUN,
                 QueuedJob::STATUS_WAIT,
             ]
         ])->exists()) {
-            return false;
+            return Director::is_cli();
+        }
+
+        return;
+    }
+
+    public function canPublish($member = null)
+    {
+        if (QueuedJobDescriptor::get()->filter([
+            'Implementation' => [
+                AsyncDoSaveJob::class,
+                AsyncPublishJob::class,
+            ],
+            'Signature' => AsyncPublisherService::generateSignature($this->owner),
+            'JobStatus' => [
+                QueuedJob::STATUS_NEW,
+                QueuedJob::STATUS_INIT,
+                QueuedJob::STATUS_WAIT,
+            ]
+        ])->exists()) {
+            return Director::is_cli();
         }
 
         return;

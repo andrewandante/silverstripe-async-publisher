@@ -1,5 +1,5 @@
 {
-    "name": "silverstripe/async-publisher",
+    "name": "andrewandante/silverstripe-async-publisher",
     "description": "An asynchronous publishing hook for large datasets.",
     "type": "silverstripe-vendormodule",
     "keywords": [

@@ -1,0 +1,6 @@
+---
+name: asyncpublisher-extensions
+---
+SilverStripe\CMS\Controllers\CMSMain:
+  extensions:
+    - AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncCMSMain
