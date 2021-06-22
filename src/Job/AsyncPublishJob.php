@@ -13,7 +13,7 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
 {
     use Injectable;
 
-    public function __construct(?DataObject $object = null, ?string $toStage = null, bool $recursive = true)
+    public function __construct(?DataObject $object = null, ?string $toStage = null)
     {
         if ($object) {
             $this->objectID = $object->ID;
@@ -22,7 +22,6 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
         }
 
         $this->toStage = $toStage ?? Versioned::LIVE;
-        $this->recursive = $recursive;
     }
 
     public function getJobType()
@@ -41,7 +40,7 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
      */
     public function getTitle()
     {
-        return sprintf("Writing %s to %s", $this->objectTitle, $this->toStage);
+        return sprintf("Async Publish %s", $this->objectTitle);
     }
 
     /**
@@ -51,11 +50,7 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
     {
         $object = DataObject::get($this->objectClass)->byID($this->objectID);
         if ($object && $object->hasExtension(AsyncPublishExtension::class)) {
-            if ($this->recursive) {
-                $object->doPublishRecursive();
-            } else {
-                $object->doPublishSingle();
-            }
+            $object->doPublishRecursive();
         }
 
         $this->isComplete = true;

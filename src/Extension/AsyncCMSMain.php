@@ -17,6 +17,7 @@ class AsyncCMSMain extends Extension
 {
     private static $allowed_actions = [
         'async_publish',
+        'force_publish'
     ];
 
     public function async_publish($data, $form)
@@ -24,6 +25,14 @@ class AsyncCMSMain extends Extension
         $data['publish'] = 1;
         return $this->save($data, $form);
     }
+
+    public function force_publish($data, $form)
+    {
+        $data['publish'] = 1;
+        $data['force'] = 1;
+        return $this->save($data, $form);
+    }
+
     /**
      * Save and Publish page handler
      * Need to catch this before it hits the loop or we'll be in trouble
@@ -36,6 +45,8 @@ class AsyncCMSMain extends Extension
     public function save($data, $form)
     {
         $className = $this->owner->config()->get('tree_class');
+        $doPublish = !empty($data['publish']);
+        $doForce = !empty($data['force']);
 
         // Existing or new record?
         $id = $data['ID'];
@@ -56,19 +67,58 @@ class AsyncCMSMain extends Extension
             $record = $this->owner->getNewItem($id, false);
         }
 
-        $job = AsyncDoSaveJob::create($data, $form, Controller::curr(), $record);
-        QueuedJobService::singleton()->queueJob($job);
-        if (!empty($data['publish'])) {
-            $message = _t(
-                __CLASS__ . '.QUEUED_PUBLISHED',
-                "Queued for publish successfully."
-            );
+        if ($doForce) {
+            // TODO Coupling to SiteTree
+            $record->HasBrokenLink = 0;
+            $record->HasBrokenFile = 0;
+
+            if (!$record->ObsoleteClassName) {
+                $record->writeWithoutVersion();
+            }
+
+            // Update the class instance if necessary
+            if (isset($data['ClassName']) && $data['ClassName'] != $record->ClassName) {
+                // Replace $record with a new instance of the new class
+                $newClassName = $data['ClassName'];
+                $record = $record->newClassInstance($newClassName);
+            }
+
+            // save form data into record
+            $form->saveInto($record);
+            $record->write();
+            if ($doPublish) {
+                $record->doPublishRecursive();
+                $message = _t(
+                    __CLASS__ . '.PUBLISHED',
+                    "Published '{title}' successfully.",
+                    ['title' => $record->Title]
+                );
+            } else {
+                $message = _t(
+                    __CLASS__ . '.SAVED',
+                    "Saved '{title}' successfully.",
+                    ['title' => $record->Title]
+                );
+            }
         } else {
-            $message = _t(
-                __CLASS__ . '.QUEUED_SAVED',
-                "Queued for save successfully."
-            );
+            $job = AsyncDoSaveJob::create($data, $form, Controller::curr(), $record);
+            QueuedJobService::singleton()->queueJob($job);
+
+            if ($doPublish) {
+                $message = _t(
+                    __CLASS__ . '.QUEUED_PUBLISHED',
+                    "Queued'{title}' for publish successfully.",
+                    ['title' => $record->Title]
+                );
+            } else {
+                $message = _t(
+                    __CLASS__ . '.QUEUED_SAVED',
+                    "Queued '{title}' for save successfully.",
+                    ['title' => $record->Title]
+                );
+            }
         }
+
         $this->owner->getResponse()->addHeader('X-Status', rawurlencode($message));
         return $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
     }

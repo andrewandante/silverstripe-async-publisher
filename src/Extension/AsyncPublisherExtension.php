@@ -24,7 +24,15 @@ class AsyncPublisherExtension extends Extension
     {
         /** @var CompositeField $majorActions */
         $majorActions = $actions->fieldByName('MajorActions');
-        if ($majorActions->fieldByName('action_publish') !== null) {
+        $moreOptions = $actions->fieldByName('ActionMenus.MoreOptions');
+
+        // This is a quick way to check that canPublish === true
+        /** @var FormAction $actionPublish */
+        $actionPublish = $majorActions->fieldByName('action_publish');
+        if ($actionPublish !== null) {
+            $forcePublish = FormAction::create('force_publish', _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish'))
+                ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish'));
+            $moreOptions->push($forcePublish);
             $majorActions->removeByName('action_publish');
             $majorActions->push(
                 FormAction::create('async_publish', _t(__CLASS__ . '.BUTTONASYNCPUBLISHED', 'Published'))
@@ -37,33 +45,10 @@ class AsyncPublisherExtension extends Extension
         }
     }
 
-    public function publishSingle()
-    {
-        $publishJob = AsyncPublishJob::create($this->owner, Versioned::LIVE, false);
-        QueuedJobService::singleton()->queueJob($publishJob);
-    }
-
     public function publishRecursive()
     {
-        $publishJob = AsyncPublishJob::create($this->owner, Versioned::LIVE, true);
+        $publishJob = AsyncPublishJob::create($this->owner, Versioned::LIVE);
         QueuedJobService::singleton()->queueJob($publishJob);
-    }
-
-    public function doPublishSingle()
-    {
-        $owner = $this->owner;
-        // get the last published version
-        $original = null;
-        if ($owner->isPublished()) {
-            $original = Versioned::get_by_stage($owner->baseClass(), Versioned::LIVE)
-                ->byID($owner->ID);
-        }
-
-        // Publish it
-        $owner->invokeWithExtensions('onBeforePublish', $original);
-        $owner->writeToStage(Versioned::LIVE);
-        $owner->invokeWithExtensions('onAfterPublish', $original);
-        return true;
     }
 
     public function doPublishRecursive()
