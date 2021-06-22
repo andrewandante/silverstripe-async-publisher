@@ -3,6 +3,7 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Core\ClassInfo;
+use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Versioned\Versioned;
 use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
@@ -10,6 +11,7 @@ use Symbiote\QueuedJobs\Services\QueuedJob;
 
 class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
 {
+    use Injectable;
 
     public function __construct(?DataObject $object = null, ?string $toStage = null, bool $recursive = true)
     {

@@ -39,13 +39,13 @@ class AsyncPublisherExtension extends Extension
 
     public function publishSingle()
     {
-        $publishJob = new AsyncPublishJob($this->owner, Versioned::LIVE, false);
+        $publishJob = AsyncPublishJob::create($this->owner, Versioned::LIVE, false);
         QueuedJobService::singleton()->queueJob($publishJob);
     }
 
     public function publishRecursive()
     {
-        $publishJob = new AsyncPublishJob($this->owner, Versioned::LIVE, true);
+        $publishJob = AsyncPublishJob::create($this->owner, Versioned::LIVE, true);
         QueuedJobService::singleton()->queueJob($publishJob);
     }
 

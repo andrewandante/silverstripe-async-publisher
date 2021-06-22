@@ -6,6 +6,8 @@ use Psr\SimpleCache\CacheInterface;
 use SilverStripe\Core\Config\Configurable;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\Forms\Form;
+use SilverStripe\Forms\FormField;
+use SilverStripe\ORM\DataObject;
 
 class AsyncPublisherService
 {
@@ -37,14 +39,33 @@ class AsyncPublisherService
     {
         $signature = self::generateSignature($record);
         $cachettl = $this->config()->get('cache_ttl');
-        $this->formDataCache->set($signature, $form->getData(), $cachettl);
+        $formData = $form->getData();
+        $formDataFields = $form->Fields()->dataFields();
+        $fieldsMap = [];
+        foreach ($formDataFields as $field) {
+            $fieldsMap[] = [
+                'className' => get_class($field),
+                'fieldName' => $field->getName(),
+                'value' => $field->Value(),
+            ];
+        }
+        $this->formDataCache->set($signature . "-data", $form->getData(), $cachettl);
+        $this->formDataCache->set($signature . "-fields", $fieldsMap, $cachettl);
 
         return $signature;
     }
 
     public function getFormSubmissionBySignature(string $signature)
     {
-        return Form::create()->loadDataFrom($this->formDataCache->get($signature));
+        $formData = $this->formDataCache->get($signature . "-data");
+        $formFields = $this->formDataCache->get($signature . "-fields");
+        $form = Form::create();
+        foreach ($formFields as $formFieldData) {
+            $field = $formFieldData['className']::create($formFieldData['fieldName']);
+            $field->setValue($formFieldData['value']);
+            $form->Fields()->add($field);
+        }
+        return $form->loadDataFrom($formData, Form::MERGE_AS_SUBMITTED_VALUE);
     }
 
     public static function generateSignature($record)

@@ -62,7 +62,6 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
      */
     public function process()
     {
-        /** @var Controller $controller */
         $controller = new $this->controllerClass;
         $form = $this->asyncPublisherService->getFormSubmissionBySignature($this->signature);
         $data = $this->formData;
