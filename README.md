@@ -8,6 +8,7 @@ VERY ALPHA
 ```yaml
 ---
 name: async-publisher-config
+---
 Page:
   extensions:
       - AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension

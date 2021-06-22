@@ -109,38 +109,36 @@ class AsyncPublisherExtension extends Extension
 
     public function canEdit($member = null)
     {
-        if (QueuedJobDescriptor::get()->filter([
-            'Implementation' => AsyncDoSaveJob::class,
-            'Signature' => AsyncPublisherService::generateSignature($this->owner),
-            'JobStatus' => [
-                QueuedJob::STATUS_NEW,
-                QueuedJob::STATUS_INIT,
-                QueuedJob::STATUS_WAIT,
-            ]
-        ])->exists()) {
-            return Director::is_cli();
+        if (!Director::is_cli() && $this->pendingJobsExist([AsyncDoSaveJob::class])) {
+            return false;
         }
 
-        return;
+        return null;
     }
 
-    public function canPublish($member = null)
+    public function canPublish($member = null): ?bool
     {
-        if (QueuedJobDescriptor::get()->filter([
-            'Implementation' => [
-                AsyncDoSaveJob::class,
-                AsyncPublishJob::class,
-            ],
+        if (!Director::is_cli() && $this->pendingJobsExist([AsyncDoSaveJob::class, AsyncPublishJob::class])) {
+            return false;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string[] $classes
+     * @return bool
+     */
+    private function pendingJobsExist(array $classes): bool
+    {
+        return QueuedJobDescriptor::get()->filter([
+            'Implementation' => $classes,
             'Signature' => AsyncPublisherService::generateSignature($this->owner),
             'JobStatus' => [
                 QueuedJob::STATUS_NEW,
                 QueuedJob::STATUS_INIT,
                 QueuedJob::STATUS_WAIT,
             ]
-        ])->exists()) {
-            return Director::is_cli();
-        }
-
-        return;
+        ])->exists();
     }
 }

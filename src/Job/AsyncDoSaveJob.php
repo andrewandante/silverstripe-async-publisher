@@ -25,8 +25,12 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
      */
     protected $asyncPublisherService;
 
-    public function __construct(?array $data = [], ?Form $form = null, ?Controller $controller = null, ?DataObject $record = null)
-    {
+    public function __construct(
+        ?array $data = [],
+        ?Form $form = null,
+        ?Controller $controller = null,
+        ?DataObject $record = null
+    ) {
         $this->asyncPublisherService = AsyncPublisherService::create();
         $this->signature = $this->randomSignature();
         $this->formData = $data;
@@ -62,7 +66,7 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
      */
     public function process()
     {
-        $controller = new $this->controllerClass;
+        $controller = new $this->controllerClass();
         $form = $this->asyncPublisherService->getFormSubmissionBySignature($this->signature);
         $data = $this->formData;
         $message = $controller->doSave($data, $form);
