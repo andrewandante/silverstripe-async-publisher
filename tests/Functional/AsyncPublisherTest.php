@@ -21,7 +21,7 @@ class AsyncPublisherTest extends FunctionalTest
         $this->logInWithPermission();
         /** @var Page $page */
         $page = $this->objFromFixture(Page::class, 'first');
-        $this->get($page->getCMSEditLink());
+        $this->get($page->CMSEditLink());
         $this->assertExactMatchBySelector(
             '#Form_EditForm_MajorActions_Holder #Form_EditForm_action_async_save span',
             ['Saved']
@@ -30,13 +30,13 @@ class AsyncPublisherTest extends FunctionalTest
             '#Form_EditForm_MajorActions_Holder #Form_EditForm_action_async_publish span',
             ['Published']
         );
-        $this->assertExactMatchBySelector(
-            '#ActionMenus_MoreOptions #Form_EditForm_action_force_save.value',
-            ['Force Save']
+        $this->assertPartialHTMLMatchBySelector(
+            '#ActionMenus_MoreOptions #Form_EditForm_action_force_save',
+            ['<input type="submit" name="action_force_save" value="Force Save" id="Form_EditForm_action_force_save" data-text-alternate="Force Save" class="btn action"/>']
         );
-        $this->assertExactMatchBySelector(
-            '#ActionMenus_MoreOptions #Form_EditForm_action_force_publish.value',
-            ['Force Publish']
+        $this->assertPartialHTMLMatchBySelector(
+            '#ActionMenus_MoreOptions #Form_EditForm_action_force_publish',
+            ['<input type="submit" name="action_force_publish" value="Force Publish" id="Form_EditForm_action_force_publish" data-text-alternate="Force Publish" class="btn action"/>']
         );
     }
 }
