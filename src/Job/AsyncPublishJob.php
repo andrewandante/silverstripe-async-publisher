@@ -2,6 +2,7 @@
 
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
+use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\ORM\DataObject;
@@ -15,10 +16,12 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
 
     public function __construct(?DataObject $object = null, ?string $toStage = null)
     {
+        $this->signature = $this->randomSignature();
         if ($object) {
             $this->objectID = $object->ID;
             $this->objectClass = ClassInfo::class_name($object);
             $this->objectTitle = $object->Title ?? 'unknown';
+            $this->signature = AsyncPublisherService::generateSignature($object);
         }
 
         $this->toStage = $toStage ?? Versioned::LIVE;
@@ -32,7 +35,7 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
 
     public function getSignature()
     {
-        return md5(sprintf("%s-%s", $this->objectID, $this->objectClass));
+        return $this->signature;
     }
 
     /**

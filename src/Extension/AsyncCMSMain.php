@@ -16,6 +16,8 @@ use Symbiote\QueuedJobs\Services\QueuedJobService;
 class AsyncCMSMain extends Extension
 {
     private static $allowed_actions = [
+        'async_save',
+        'force_save',
         'async_publish',
         'force_publish'
     ];
@@ -31,6 +33,17 @@ class AsyncCMSMain extends Extension
         $data['publish'] = 1;
         $data['force'] = 1;
         return $this->save($data, $form);
+    }
+
+    public function async_save($data, $form)
+    {
+        $this->save($data, $form);
+    }
+
+    public function force_save($data, $form)
+    {
+        $data['force'] = 1;
+        $this->save($data, $form);
     }
 
     /**

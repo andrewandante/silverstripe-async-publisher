@@ -33,6 +33,7 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
     ) {
         $this->asyncPublisherService = AsyncPublisherService::create();
         $this->signature = $this->randomSignature();
+        $this->objectTitle = $record->Title ?? 'unknown';
         $this->formData = $data;
         $this->record = $record;
         $this->controllerClass = get_class($controller);
@@ -58,7 +59,7 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
      */
     public function getTitle()
     {
-        return 'Async doSave job';
+        return sprintf("Async Save %s", $this->objectTitle);
     }
 
     /**

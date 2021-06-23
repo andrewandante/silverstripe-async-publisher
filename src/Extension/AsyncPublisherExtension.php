@@ -26,19 +26,36 @@ class AsyncPublisherExtension extends Extension
         $majorActions = $actions->fieldByName('MajorActions');
         $moreOptions = $actions->fieldByName('ActionMenus.MoreOptions');
 
+        $noChangesClasses = 'btn-outline-primary font-icon-tick';
+
+        // This is a quick way to check that canEdit === true
+        if ($majorActions->fieldByName('action_save') !== null) {
+            $forceSave = FormAction::create('force_save', _t(__CLASS__ . '.BUTTONFORCESAVE', 'Force Save'))
+                ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVE', 'Force Save'));
+            $moreOptions->push($forceSave);
+            $majorActions->removeByName('action_save');
+            $majorActions->push(
+                FormAction::create('async_save', _t(__CLASS__ . '.BUTTONASYNCSAVED', 'Saved'))
+                    ->addExtraClass($noChangesClasses)
+                    ->setAttribute('data-btn-alternate-add', 'btn-primary font-icon-save')
+                    ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
+                    ->setUseButtonTag(true)
+                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVE', 'Queue Save'))
+            );
+        };
+
+
         // This is a quick way to check that canPublish === true
-        /** @var FormAction $actionPublish */
-        $actionPublish = $majorActions->fieldByName('action_publish');
-        if ($actionPublish !== null) {
+        if ($majorActions->fieldByName('action_publish') !== null) {
             $forcePublish = FormAction::create('force_publish', _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish'))
                 ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish'));
             $moreOptions->push($forcePublish);
             $majorActions->removeByName('action_publish');
             $majorActions->push(
                 FormAction::create('async_publish', _t(__CLASS__ . '.BUTTONASYNCPUBLISHED', 'Published'))
-                    ->addExtraClass('btn-outline-primary font-icon-tick')
+                    ->addExtraClass($noChangesClasses)
                     ->setAttribute('data-btn-alternate-add', 'btn-primary font-icon-rocket')
-                    ->setAttribute('data-btn-alternate-remove', 'btn-outline-primary font-icon-tick')
+                    ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
                     ->setUseButtonTag(true)
                     ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish'))
             );
