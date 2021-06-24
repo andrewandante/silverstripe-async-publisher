@@ -10,6 +10,7 @@ use SilverStripe\Core\Extension;
 use SilverStripe\Forms\CompositeField;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\FormAction;
+use SilverStripe\Forms\LiteralField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBDatetime;
 use SilverStripe\Versioned\ChangeSet;
@@ -20,6 +21,23 @@ use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class AsyncPublisherExtension extends Extension
 {
+    public function updateCMSFields(FieldList $fields)
+    {
+        $isWriting = $this->pendingJobsExist([AsyncDoSaveJob::class]);
+        $isPublishing = $this->pendingJobsExist([AsyncPublishJob::class]);
+        if ($isWriting || $isPublishing) {
+            $verb = $isPublishing ? 'publishing' : 'writing';
+            $fields->addFieldToTab('Root.Main', LiteralField::create(
+                'PendingJobsHeader',
+                '<div class="alert alert-warning">' . _t(
+                    __CLASS__ . '.PENDING_JOBS_WARNING',
+                    sprintf("This is currently queued for %s - some fields may show stale values. <br />Please try refreshing the page in a minute or so for editing", $verb)
+                )
+                . '</div>'
+            ), 'Title');
+        }
+    }
+
     public function updateCMSActions(FieldList $actions)
     {
         /** @var CompositeField $majorActions */
