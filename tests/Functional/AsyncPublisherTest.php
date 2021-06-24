@@ -5,10 +5,15 @@ namespace AndrewAndante\SilverStripe\AsyncPublisher\Tests\Functional;
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
 use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncDoSaveJob;
 use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncPublishJob;
+use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
 use Page;
 use SilverStripe\CMS\Model\SiteTree;
+use SilverStripe\Core\Injector\Injectable;
+use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\FunctionalTest;
+use SilverStripe\Versioned\Versioned;
 use Symbiote\QueuedJobs\DataObjects\QueuedJobDescriptor;
+use Symbiote\QueuedJobs\Services\QueuedJob;
 use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class AsyncPublisherTest extends FunctionalTest
@@ -17,6 +22,8 @@ class AsyncPublisherTest extends FunctionalTest
     {
         parent::setUpBeforeClass();
         SiteTree::add_extension(AsyncPublisherExtension::class);
+        $mockAsyncPublisherService = MockAsyncPublisherService::create();
+        Injector::inst()->registerService($mockAsyncPublisherService, AsyncPublisherService::class);
     }
 
     protected static $fixture_file = 'fixtures.yml';
@@ -67,14 +74,26 @@ class AsyncPublisherTest extends FunctionalTest
                 ->count()
         );
 
-        $this->assertFalse($page->canEdit());
-        $this->assertFalse($page->canPublish());
-
         QueuedJobService::singleton()->runJob(
-            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncDoSaveJob::class])->first()
+            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncDoSaveJob::class])->first()->ID
         );
 
-        $this->assertEquals('QueueSaveContent', $page->getField('Content'));
+        $this->assertEquals(
+            1,
+            QueuedJobDescriptor::get()
+                ->filter(['Implementation' => AsyncDoSaveJob::class, 'JobStatus' => QueuedJob::STATUS_COMPLETE])
+                ->count()
+        );
+        $this->assertEquals(
+            0,
+            QueuedJobDescriptor::get()
+                ->filter(['Implementation' => AsyncPublishJob::class])
+                ->count()
+        );
+
+        $refreshedPage = SiteTree::get()->byID($page->ID);
+        $this->assertEquals('QueueSaveContent', $refreshedPage->getField('Content'));
+        $this->assertFalse($refreshedPage->isPublished());
 
     }
 }

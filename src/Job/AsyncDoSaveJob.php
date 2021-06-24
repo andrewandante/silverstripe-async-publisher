@@ -6,6 +6,7 @@ use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
 use SilverStripe\Control\Controller;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
+use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\Form;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Versioned\Versioned;
@@ -31,7 +32,7 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
         ?Controller $controller = null,
         ?DataObject $record = null
     ) {
-        $this->asyncPublisherService = AsyncPublisherService::create();
+        $this->asyncPublisherService = Injector::inst()->get(AsyncPublisherService::class);
         $this->signature = $this->randomSignature();
         $this->objectTitle = $record->Title ?? 'unknown';
         $this->formData = $data;
