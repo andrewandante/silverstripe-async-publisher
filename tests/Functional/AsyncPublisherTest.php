@@ -94,6 +94,66 @@ class AsyncPublisherTest extends FunctionalTest
         $refreshedPage = SiteTree::get()->byID($page->ID);
         $this->assertEquals('QueueSaveContent', $refreshedPage->getField('Content'));
         $this->assertFalse($refreshedPage->isPublished());
+    }
 
+    public function testQueuePublish()
+    {
+        $this->logInWithPermission();
+        $page = $this->objFromFixture(SiteTree::class, 'first');
+        $this->get($page->CMSEditLink());
+        $response = $this->submitForm('Form_EditForm', 'action_async_publish', [
+            'Content' => 'QueuePublishContent'
+        ]);
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertEquals(
+            1,
+            QueuedJobDescriptor::get()
+                ->filter(['Implementation' => AsyncDoSaveJob::class])
+                ->count()
+        );
+        $this->assertEquals(
+            0,
+            QueuedJobDescriptor::get()
+                ->filter(['Implementation' => AsyncPublishJob::class])
+                ->count()
+        );
+
+        QueuedJobService::singleton()->runJob(
+            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncDoSaveJob::class])->first()->ID
+        );
+
+        $this->assertEquals(
+            1,
+            QueuedJobDescriptor::get()
+                ->filter(['Implementation' => AsyncDoSaveJob::class, 'JobStatus' => QueuedJob::STATUS_COMPLETE])
+                ->count()
+        );
+        $this->assertEquals(
+            1,
+            QueuedJobDescriptor::get()
+                ->filter(['Implementation' => AsyncPublishJob::class])
+                ->count()
+        );
+
+        $refreshedPage = SiteTree::get()->byID($page->ID);
+        $this->assertFalse($refreshedPage->isPublished());
+        $this->assertEquals('QueuePublishContent', $refreshedPage->getField('Content'));
+
+
+        QueuedJobService::singleton()->runJob(
+            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncPublishJob::class])->first()->ID
+        );
+
+        $this->assertEquals(
+            1,
+            QueuedJobDescriptor::get()
+                ->filter(['Implementation' => AsyncPublishJob::class, 'JobStatus' => QueuedJob::STATUS_COMPLETE])
+                ->count()
+        );
+
+        $refreshedPage = SiteTree::get()->byID($page->ID);
+        $this->assertTrue($refreshedPage->isPublished());
+        $this->assertEquals('QueuePublishContent', $refreshedPage->getField('Content'));
     }
 }

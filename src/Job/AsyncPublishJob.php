@@ -2,6 +2,7 @@
 
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
+use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
 use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
@@ -52,7 +53,11 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
     public function process()
     {
         $object = DataObject::get($this->objectClass)->byID($this->objectID);
-        if ($object && $object->hasExtension(AsyncPublishExtension::class)) {
+        if (!$object || !$object->exists()) {
+            $this->addMessage('Could not find object');
+        } elseif (!$object->hasExtension(AsyncPublisherExtension::class)) {
+            $this->addMessage('Object does not have AsyncPublisherExtension applied');
+        } else {
             $object->doPublishRecursive();
         }
 
