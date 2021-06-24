@@ -23,8 +23,8 @@ class AsyncPublisherExtension extends Extension
 {
     public function updateCMSFields(FieldList $fields)
     {
-        $isWriting = $this->pendingJobsExist([AsyncDoSaveJob::class]);
-        $isPublishing = $this->pendingJobsExist([AsyncPublishJob::class]);
+        $isWriting = $this->pendingAsyncJobsExist([AsyncDoSaveJob::class]);
+        $isPublishing = $this->pendingAsyncJobsExist([AsyncPublishJob::class]);
         if ($isWriting || $isPublishing) {
             $verb = $isPublishing ? 'publishing' : 'writing';
             $fields->addFieldToTab('Root.Main', LiteralField::create(
@@ -129,7 +129,7 @@ class AsyncPublisherExtension extends Extension
 
     public function canEdit($member = null)
     {
-        if (!Director::is_cli() && $this->pendingJobsExist([AsyncDoSaveJob::class])) {
+        if (!Director::is_cli() && $this->pendingAsyncJobsExist()) {
             return false;
         }
 
@@ -138,7 +138,7 @@ class AsyncPublisherExtension extends Extension
 
     public function canPublish($member = null): ?bool
     {
-        if (!Director::is_cli() && $this->pendingJobsExist([AsyncDoSaveJob::class, AsyncPublishJob::class])) {
+        if (!Director::is_cli() && $this->pendingAsyncJobsExist()) {
             return false;
         }
 
@@ -149,7 +149,7 @@ class AsyncPublisherExtension extends Extension
      * @param string[] $classes
      * @return bool
      */
-    private function pendingJobsExist(array $classes): bool
+    public function pendingAsyncJobsExist(array $classes = [AsyncDoSaveJob::class, AsyncPublishJob::class]): bool
     {
         return QueuedJobDescriptor::get()->filter([
             'Implementation' => $classes,

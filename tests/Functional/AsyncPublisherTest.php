@@ -31,6 +31,7 @@ class AsyncPublisherTest extends FunctionalTest
     public function testButtonsUpdate()
     {
         $this->logInWithPermission();
+        /** @var SiteTree|AsyncPublisherExtension $page */
         $page = $this->objFromFixture(SiteTree::class, 'first');
         $this->get($page->CMSEditLink());
         $this->assertExactMatchBySelector(
@@ -54,6 +55,7 @@ class AsyncPublisherTest extends FunctionalTest
     public function testQueueSave()
     {
         $this->logInWithPermission();
+        /** @var SiteTree|AsyncPublisherExtension $page */
         $page = $this->objFromFixture(SiteTree::class, 'first');
         $this->get($page->CMSEditLink());
         $response = $this->submitForm('Form_EditForm', 'action_async_save', [
@@ -61,18 +63,8 @@ class AsyncPublisherTest extends FunctionalTest
         ]);
 
         $this->assertEquals(200, $response->getStatusCode());
-        $this->assertEquals(
-            1,
-            QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncDoSaveJob::class])
-                ->count()
-        );
-        $this->assertEquals(
-            0,
-            QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncPublishJob::class])
-                ->count()
-        );
+        $this->assertTrue($page->pendingAsyncJobsExist([AsyncDoSaveJob::class]));
+        $this->assertFalse($page->pendingAsyncJobsExist([AsyncDoPublishJob::class]));
 
         QueuedJobService::singleton()->runJob(
             QueuedJobDescriptor::get()->filter(['Implementation' => AsyncDoSaveJob::class])->first()->ID
@@ -81,15 +73,14 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertEquals(
             1,
             QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncDoSaveJob::class, 'JobStatus' => QueuedJob::STATUS_COMPLETE])
+                ->filter([
+                    'Implementation' => AsyncDoSaveJob::class,
+                    'JobStatus' => QueuedJob::STATUS_COMPLETE,
+                    'Signature' => AsyncPublisherService::generateSignature($page),
+                ])
                 ->count()
         );
-        $this->assertEquals(
-            0,
-            QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncPublishJob::class])
-                ->count()
-        );
+        $this->assertFalse($page->pendingAsyncJobsExist([AsyncDoPublishJob::class]));
 
         $refreshedPage = SiteTree::get()->byID($page->ID);
         $this->assertEquals('QueueSaveContent', $refreshedPage->getField('Content'));
@@ -99,6 +90,7 @@ class AsyncPublisherTest extends FunctionalTest
     public function testQueuePublish()
     {
         $this->logInWithPermission();
+        /** @var SiteTree|AsyncPublisherExtension $page */
         $page = $this->objFromFixture(SiteTree::class, 'first');
         $this->get($page->CMSEditLink());
         $response = $this->submitForm('Form_EditForm', 'action_async_publish', [
@@ -106,18 +98,8 @@ class AsyncPublisherTest extends FunctionalTest
         ]);
 
         $this->assertEquals(200, $response->getStatusCode());
-        $this->assertEquals(
-            1,
-            QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncDoSaveJob::class])
-                ->count()
-        );
-        $this->assertEquals(
-            0,
-            QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncPublishJob::class])
-                ->count()
-        );
+        $this->assertTrue($page->pendingAsyncJobsExist([AsyncDoSaveJob::class]));
+        $this->assertFalse($page->pendingAsyncJobsExist([AsyncDoPublishJob::class]));
 
         QueuedJobService::singleton()->runJob(
             QueuedJobDescriptor::get()->filter(['Implementation' => AsyncDoSaveJob::class])->first()->ID
@@ -126,15 +108,14 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertEquals(
             1,
             QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncDoSaveJob::class, 'JobStatus' => QueuedJob::STATUS_COMPLETE])
+                ->filter([
+                    'Implementation' => AsyncDoSaveJob::class,
+                    'JobStatus' => QueuedJob::STATUS_COMPLETE,
+                    'Signature' => AsyncPublisherService::generateSignature($page),
+                ])
                 ->count()
         );
-        $this->assertEquals(
-            1,
-            QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncPublishJob::class])
-                ->count()
-        );
+        $this->assertTrue($page->pendingAsyncJobsExist([AsyncPublishJob::class]));
 
         $refreshedPage = SiteTree::get()->byID($page->ID);
         $this->assertFalse($refreshedPage->isPublished());
@@ -148,12 +129,17 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertEquals(
             1,
             QueuedJobDescriptor::get()
-                ->filter(['Implementation' => AsyncPublishJob::class, 'JobStatus' => QueuedJob::STATUS_COMPLETE])
+                ->filter([
+                    'Implementation' => AsyncPublishJob::class,
+                    'JobStatus' => QueuedJob::STATUS_COMPLETE,
+                    'Signature' => AsyncPublisherService::generateSignature($page),
+                ])
                 ->count()
         );
 
         $refreshedPage = SiteTree::get()->byID($page->ID);
         $this->assertTrue($refreshedPage->isPublished());
         $this->assertEquals('QueuePublishContent', $refreshedPage->getField('Content'));
+        $this->assertFalse($page->pendingAsyncJobsExist());
     }
 }
