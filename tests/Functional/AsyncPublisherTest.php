@@ -6,9 +6,7 @@ use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
 use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncDoSaveJob;
 use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncPublishJob;
 use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
-use Page;
 use SilverStripe\CMS\Model\SiteTree;
-use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\FunctionalTest;
 use SilverStripe\Versioned\Versioned;
@@ -99,7 +97,7 @@ class AsyncPublisherTest extends FunctionalTest
 
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertTrue($page->pendingAsyncJobsExist([AsyncDoSaveJob::class]));
-        $this->assertFalse($page->pendingAsyncJobsExist([AsyncDoPublishJob::class]));
+        $this->assertFalse($page->pendingAsyncJobsExist([AsyncPublishJob::class]));
 
         QueuedJobService::singleton()->runJob(
             QueuedJobDescriptor::get()->filter(['Implementation' => AsyncDoSaveJob::class])->first()->ID
@@ -137,6 +135,7 @@ class AsyncPublisherTest extends FunctionalTest
                 ->count()
         );
 
+        /** @var SiteTree|Versioned $refreshedPage */
         $refreshedPage = SiteTree::get()->byID($page->ID);
         $this->assertTrue($refreshedPage->isPublished());
         $this->assertEquals('QueuePublishContent', $refreshedPage->getField('Content'));
