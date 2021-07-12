@@ -16,10 +16,17 @@ use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class AsyncPublisherTest extends FunctionalTest
 {
+    protected static $required_extensions = [
+        SiteTree::class => AsyncPublisherExtension::class,
+    ];
+
+    protected static $extra_dataobjects = [
+        SometimesAsyncPage::class,
+    ];
+
     public static function setUpBeforeClass()
     {
         parent::setUpBeforeClass();
-        SiteTree::add_extension(AsyncPublisherExtension::class);
         $mockAsyncPublisherService = MockAsyncPublisherService::create();
         Injector::inst()->registerService($mockAsyncPublisherService, AsyncPublisherService::class);
     }
