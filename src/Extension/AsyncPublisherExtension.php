@@ -68,7 +68,8 @@ class AsyncPublisherExtension extends Extension
         if ($this->preferAsync()) {
             if ($canSave) {
                 $forceSave = FormAction::create('force_save', _t(__CLASS__ . '.BUTTONFORCESAVE', 'Force Save'))
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVE', 'Force Save'));
+                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVE', 'Force Save'))
+                    ->addExtraClass('btn-secondary');
                 $moreOptions->push($forceSave);
                 $majorActions->removeByName('action_save');
                 $majorActions->push(
@@ -86,7 +87,8 @@ class AsyncPublisherExtension extends Extension
                     'force_publish',
                     _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish')
                 )
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish'));
+                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish'))
+                    ->addExtraClass('btn-secondary');
                 $moreOptions->push($forcePublish);
                 $majorActions->removeByName('action_publish');
                 $majorActions->push(
@@ -104,7 +106,8 @@ class AsyncPublisherExtension extends Extension
         } else {
             if ($canSave) {
                 $queueSave = FormAction::create('async_save', _t(__CLASS__ . '.BUTTONASYNCSAVE', 'Queue Save'))
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVE', 'Queue Save'));
+                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVE', 'Queue Save'))
+                    ->addExtraClass('btn-secondary');
                 $moreOptions->push($queueSave);
                 $majorActions->removeByName('action_save');
                 $majorActions->push(
@@ -122,7 +125,8 @@ class AsyncPublisherExtension extends Extension
                     'async_publish',
                     _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish')
                 )
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish'));
+                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish'))
+                    ->addExtraClass('btn-secondary');
                 $moreOptions->push($queuePublish);
                 $majorActions->removeByName('action_publish');
                 $majorActions->push(
