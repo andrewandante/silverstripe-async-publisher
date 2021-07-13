@@ -34,6 +34,28 @@ My\SuperSlow\Page:
       - AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension
 ```
 
+This will apply it by default to all instances of that class. You can make this a little more configurable
+using the `shouldPreferAsync()` method in an extension; for example, you might attach the below to `UserDefinedForm`:
+
+```php
+<?php
+
+namespace My\App\Extensions;
+
+use SilverStripe\Core\Extension;
+
+class ShouldPreferAsyncExtension extends Extension
+{
+    public function shouldPreferAsync()
+    {
+        return $this->owner->Fields()->count() >= 20;
+    }
+}
+```
+
+Which will default to Queueing if there are 20 or more fields on the User Defined form, but otherwise
+simply add the queueing actions to the "more options" menu
+
 ## Features
 
 - replaces the "Save" and "Publish" buttons with "Queue Save" and "Queue Publish"
@@ -50,7 +72,6 @@ My\SuperSlow\Page:
 
 - test with Unpublish and Archive
 - have a better representation of state when there are pending jobs
-- have an extension hook that can influence should/should not default to queue (e.g. if a UserForm has > 50 fields)
 - make it more configurable/extensible in general
 
 ## Maintainers

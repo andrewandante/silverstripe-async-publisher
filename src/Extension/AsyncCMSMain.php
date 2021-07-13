@@ -120,7 +120,7 @@ class AsyncCMSMain extends Extension
             if ($doPublish) {
                 $message = _t(
                     __CLASS__ . '.QUEUED_PUBLISHED',
-                    "Queued'{title}' for publish successfully.",
+                    "Queued '{title}' for publish successfully.",
                     ['title' => $record->Title]
                 );
             } else {

@@ -5,6 +5,3 @@ SilverStripe\CMS\Model\SiteTree:
   second:
     Title: Second
     Content: Second
-
-
-
