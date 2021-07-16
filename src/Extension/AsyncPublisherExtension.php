@@ -217,7 +217,7 @@ class AsyncPublisherExtension extends Extension
     {
         return QueuedJobDescriptor::get()->filter([
             'Implementation' => $classes,
-            'Signature' => AsyncPublisherService::generateSignature($this->owner),
+            'Signature' => $this->generateSignature(),
             'JobStatus' => [
                 QueuedJob::STATUS_NEW,
                 QueuedJob::STATUS_INIT,
@@ -239,5 +239,10 @@ class AsyncPublisherExtension extends Extension
         }
 
         return true;
+    }
+
+    public function generateSignature()
+    {
+        return md5(sprintf("%s-%s", $this->owner->ID, $this->owner->ClassName));
     }
 }

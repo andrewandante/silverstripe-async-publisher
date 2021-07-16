@@ -22,7 +22,7 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
             $this->objectID = $object->ID;
             $this->objectClass = ClassInfo::class_name($object);
             $this->objectTitle = $object->Title ?? 'unknown';
-            $this->signature = AsyncPublisherService::generateSignature($object);
+            $this->signature = $object->generateSignature();
         }
 
         $this->toStage = $toStage ?? Versioned::LIVE;
@@ -62,7 +62,6 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
         }
 
         $this->isComplete = true;
-        return;
     }
 
 }
