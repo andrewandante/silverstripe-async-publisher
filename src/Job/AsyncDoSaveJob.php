@@ -39,6 +39,9 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
                     'className' => get_class($field),
                     'fieldName' => $field->getName(),
                     'value' => $field->Value(),
+                    'title' => $field->Title,
+                    // This is a catch for TreeDropdownField variants that need a source class
+                    'source' => ClassInfo::hasMethod($field, 'getSourceObject') ? $field->getSourceObject() : null,
                 ];
             }
             $this->fieldsMap = $fieldsMap;
@@ -74,7 +77,15 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
         $data = $this->formData;
         $form = Form::create();
         foreach ($this->fieldsMap as $formFieldData) {
-            $field = $formFieldData['className']::create($formFieldData['fieldName']);
+            if ($formFieldData['source'] !== null) {
+                $field = $formFieldData['className']::create(
+                    $formFieldData['fieldName'],
+                    $formFieldData['title'],
+                    $formFieldData['source']
+                );
+            } else {
+                $field = $formFieldData['className']::create($formFieldData['fieldName'], $formFieldData['title']);
+            }
             $field->setValue($formFieldData['value']);
             $form->Fields()->add($field);
         }
