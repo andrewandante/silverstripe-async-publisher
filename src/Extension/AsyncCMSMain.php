@@ -133,7 +133,10 @@ class AsyncCMSMain extends Extension
         }
 
         $this->owner->getResponse()->addHeader('X-Status', rawurlencode($message));
-        return $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
+        $response = $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
+        $response->addHeader('X-Reload', true);
+        $response->addHeader('X-ControllerURL', $record->CMSEditLink());
+        return $response;
     }
 
     public function doSave($data, $form)
