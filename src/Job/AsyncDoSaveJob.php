@@ -17,30 +17,32 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
 {
     use Injectable;
 
-    private static $dependencies = [
-        'asyncPublisherService' => AsyncPublisherService::class,
-    ];
-
-    /**
-     * @var AsyncPublisherService
-     */
-    protected $asyncPublisherService;
-
     public function __construct(
         ?array $data = [],
         ?Form $form = null,
         ?Controller $controller = null,
         ?DataObject $record = null
     ) {
-        $this->asyncPublisherService = Injector::inst()->get(AsyncPublisherService::class);
         $this->signature = $this->randomSignature();
         $this->objectTitle = $record->Title ?? 'unknown';
         $this->formData = $data;
+        $this->fieldsMap = null;
         $this->record = $record;
         $this->controllerClass = get_class($controller);
+        // We need to deconstruct the form so we can rebuild it later
+        // as its not serialisable and thus can't be stored as JobData
         if ($data && $form && $record) {
-            $this->asyncPublisherService->cacheFormSubmission($record, $form);
-            $this->signature = AsyncPublisherService::generateSignature($record);
+            $formDataFields = $form->Fields()->dataFields();
+            $fieldsMap = [];
+            foreach ($formDataFields as $field) {
+                $fieldsMap[] = [
+                    'className' => get_class($field),
+                    'fieldName' => $field->getName(),
+                    'value' => $field->Value(),
+                ];
+            }
+            $this->fieldsMap = $fieldsMap;
+            $this->signature = $record->generateSignature();
         }
     }
 
@@ -69,8 +71,14 @@ class AsyncDoSaveJob extends AbstractQueuedJob implements QueuedJob
     public function process()
     {
         $controller = new $this->controllerClass();
-        $form = $this->asyncPublisherService->getFormSubmissionBySignature($this->signature);
         $data = $this->formData;
+        $form = Form::create();
+        foreach ($this->fieldsMap as $formFieldData) {
+            $field = $formFieldData['className']::create($formFieldData['fieldName']);
+            $field->setValue($formFieldData['value']);
+            $form->Fields()->add($field);
+        }
+        $form = $form->loadDataFrom($data, Form::MERGE_AS_SUBMITTED_VALUE);
         $message = $controller->doSave($data, $form);
         $this->addMessage($message);
         $this->isComplete = true;
