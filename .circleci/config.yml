@@ -35,20 +35,9 @@ jobs:
       # Use correct node version
       - run: nvm alias default $(cat .nvmrc)
 
-      # Composer Cache + Installation
-      - restore_cache:
-          keys:
-            - v1-composer-{{ checksum "composer.lock" }}
-            # fallback to using the latest cache if no exact match is found
-            - v1-composer-
+      # Composer Installation
       - run: composer install -n --prefer-dist
-      - run: composer vendor-expose # always expose: cached content is never exposed automatically
-      # Save all dependancies to cache
-      - save_cache:
-          key: v1-composer-{{ checksum "composer.lock" }}
-          paths:
-            - vendor
-            - resources
+      - run: composer vendor-expose # always expose for extra safety
 
       - run: mv .circleci/.env.circleci .env
       - run: chown -R vagrant:vagrant /var/www/mysite/www
@@ -57,11 +46,12 @@ jobs:
       # JS/SCSS/PHP Linting
       - run: composer silverstripe-standards
 
+      # shoe-horn in Page and PageController
+      - run: cp /var/www/mysite/www/tests/php/templates/PageController.php.tmpl /var/www/mysite/www/src/PageController.php
+      - run: cp /var/www/mysite/www/tests/php/templates/Page.php.tmpl /var/www/mysite/www/src/Page.php
+
       # dev/build
       - run: sudo -u vagrant vendor/bin/sake dev/build flush=1
 
       # PHP Tests
-      - run: vendor/bin/phpunit --verbose --coverage-html coverage/php  --coverage-clover coverage/php/clover.xml
-
-      - store_artifacts:
-          path: coverage
+      - run: vendor/bin/phpunit --verbose
