@@ -8,6 +8,8 @@ use SilverStripe\Dev\TestOnly;
 
 class SometimesAsyncPage extends SiteTree implements TestOnly
 {
+    private static $table_name = 'SometimesAsyncPage';
+
     private static $extensions = [
         AsyncPublisherExtension::class,
     ];

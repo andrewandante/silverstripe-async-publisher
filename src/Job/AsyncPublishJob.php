@@ -63,5 +63,4 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
 
         $this->isComplete = true;
     }
-
 }

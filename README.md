@@ -1,5 +1,7 @@
 # SilverStripe Asynchronous Publishing
 
+[![CircleCI](https://circleci.com/gh/andrewandante/silverstripe-async-publisher/tree/main.svg?style=svg)](https://circleci.com/gh/andrewandante/silverstripe-async-publisher/tree/main)
+
 Pushes writing and publishing to a Queued Job to avoid in-browser timeouts
 
 ## Installation
@@ -76,4 +78,4 @@ simply add the queueing actions to the "more options" menu
 
 ## Maintainers
 
- * Andrew Aitken-Fincham <andrew.aitkenfincham@silverstripe.com>
+ * Andrew Paxley <andrew.paxley@silverstripe.com>

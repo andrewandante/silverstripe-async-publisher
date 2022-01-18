@@ -24,6 +24,12 @@
             "AndrewAndante\\SilverStripe\\AsyncPublisher\\Tests\\": "tests/"
         }
     },
+    "extra": {
+        "project-files-installed": [
+            "src/Page.php",
+            "src/PageController.php"
+        ]
+    },
     "scripts": {
         "silverstripe-standards": [
             "@phpcs"
