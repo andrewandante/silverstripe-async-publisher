@@ -4,3 +4,13 @@ name: asyncpublisher-extensions
 SilverStripe\CMS\Controllers\CMSMain:
   extensions:
     - AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncCMSMain
+SilverStripe\Forms\FormField:
+  extensions:
+    - AndrewAndante\SilverStripe\AsyncPublisher\Extension\FormFieldExtension
+SilverStripe\Forms\GridField\GridField:
+  extensions:
+    - AndrewAndante\SilverStripe\AsyncPublisher\Extension\GridFieldExtension
+SilverStripe\Forms\TreeDropdownField:
+  extensions:
+    - AndrewAndante\SilverStripe\AsyncPublisher\Extension\TreeDropdownFieldExtension
+
