@@ -6,12 +6,12 @@ version: 2
 jobs:
   build:
     docker:
-      - image: silverstripe/bespoke-ci-base:3.0.0
+      - image: ghcr.io/silverstripeltd/bespoke-ci-base:3.2.1
         environment:
           - DISPLAY=:99
           - CHROME_BIN=/usr/bin/google-chrome-stable
           - BASH_ENV=/root/.bashrc
-      - image: circleci/mysql:5.7
+      - image: cimg/mysql:5.7
         environment:
           - MYSQL_ROOT_PASSWORD=ubuntu
           - MYSQL_DATABASE=circle_test
@@ -36,8 +36,9 @@ jobs:
       - run: nvm alias default $(cat .nvmrc)
 
       # Composer Installation
-      - run: composer install -n --prefer-dist
-      - run: composer vendor-expose # always expose for extra safety
+      - run: composer self-update --2
+      - run: composer install -n --prefer-source --no-interaction
+#      - run: composer vendor-expose # always expose for extra safety
 
       - run: mv .circleci/.env.circleci .env
       - run: chown -R vagrant:vagrant /var/www/mysite/www
