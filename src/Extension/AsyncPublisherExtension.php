@@ -2,11 +2,10 @@
 
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Extension;
 
-use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncDoSaveJob;
-use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncPublishJob;
+use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncPublish;
+use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
 use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
 use SilverStripe\Control\Director;
-use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Extension;
 use SilverStripe\Forms\CompositeField;
 use SilverStripe\Forms\FieldList;
@@ -15,6 +14,7 @@ use SilverStripe\Forms\LiteralField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBDatetime;
 use SilverStripe\Versioned\ChangeSet;
+use SilverStripe\Versioned\RecursivePublishable;
 use SilverStripe\Versioned\Versioned;
 use Symbiote\QueuedJobs\DataObjects\QueuedJobDescriptor;
 use Symbiote\QueuedJobs\Services\QueuedJob;
@@ -24,28 +24,35 @@ class AsyncPublisherExtension extends Extension
 {
     public function updateCMSFields(FieldList $fields)
     {
-        $isWriting = $this->pendingAsyncJobsExist([AsyncDoSaveJob::class]);
-        $isPublishing = $this->pendingAsyncJobsExist([AsyncPublishJob::class]);
+        $isWriting = $this->pendingAsyncJobsExist([AsyncSave::class]);
+        $isPublishing = $this->pendingAsyncJobsExist([AsyncPublish::class]);
         if ($isWriting || $isPublishing) {
-            $verb = $isPublishing ? 'publishing' : 'writing';
-            $fields->addFieldToTab('Root.Main', LiteralField::create(
-                'PendingJobsHeader',
-                '<div class="alert alert-warning">' . _t(
-                    __CLASS__ . '.PENDING_JOBS_WARNING',
-                    sprintf(
-                        "This is currently queued for %s - some fields may show stale values. <br />
-                                Please try refreshing the page in a minute or so for editing",
-                        $verb
-                    )
-                )
-                . '</div>'
-            ), 'Title');
+            $verb = $isWriting ? _t(__CLASS__ . '.WRITING', 'writing') : _t(__CLASS__ . '.PUBLISHING', 'publishing');
+            $historicData = $isWriting ? _t(__CLASS__ . '.HISTORIC_DATA', ' - fields show historic content') : '';
+            $queuedMessage = _t(
+                __CLASS__ . '.PENDING_JOBS_WARNING',
+                "This {ObjectType} is currently queued for {ActionType}{HistoricData}.
+                Please try refreshing the page in a minute or so for editing",
+                [
+                    'ObjectType' => $this->owner->i18n_singular_name(),
+                    'ActionType' => $verb,
+                    'HistoricData' => $historicData,
+                ]
+            );
+            $fields->addFieldToTab(
+                'Root.Main',
+                LiteralField::create(
+                    'PendingJobsHeader',
+                    '<div class="alert alert-warning">' . nl2br($queuedMessage) . '</div>'
+                ),
+                'Title'
+            );
         }
     }
 
     /**
      * If enabled, switches out the Save and Publish buttons for Queue Save and Queue Publish
-     * Pushes the originals to the More Options (...) menu and rebrands with Force prefixes
+     * Pushes the originals to the More Options (`...`) menu and rebrands as 'immediate' options
      *
      * @param FieldList $actions
      */
@@ -54,141 +61,80 @@ class AsyncPublisherExtension extends Extension
         /** @var CompositeField $majorActions */
         $majorActions = $actions->fieldByName('MajorActions');
         $moreOptions = $actions->fieldByName('ActionMenus.MoreOptions');
-        $canSave = $majorActions->fieldByName('action_save') !== null;
-        $canPublish = $majorActions->fieldByName('action_publish') !== null;
+        $saveButton = $majorActions->fieldByName('action_save');
+        $publishButton = $majorActions->fieldByName('action_publish');
+        // canSave() & canPublish() have run as part of the normal action button additions
+        // it would also waste resources to check again
+        $canSave = $saveButton !== null;
+        $canPublish = $publishButton !== null;
         $noChangesClasses = 'btn-outline-primary font-icon-tick';
+        $changesClassesWithoutIconName = 'btn-primary font-icon-';
+
+        if (!$canSave && !$canPublish) {
+            return;
+        }
+
+        $queueSave = FormAction::create('asyncSave', _t(__CLASS__ . '.BUTTON_QUEUE_SAVED', 'Saved'))
+            ->addExtraClass($noChangesClasses)
+            ->setAttribute('data-btn-alternate-add', $changesClassesWithoutIconName . 'save')
+            ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
+            ->setUseButtonTag(true)
+            ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTON_QUEUE_SAVE', 'Queue Save'));
+
+        $queuePublish = FormAction::create('asyncPublish', _t(__CLASS__ . '.BUTTON_QUEUE_PUBLISHED', 'Published'))
+            ->addExtraClass($noChangesClasses)
+            ->setAttribute('data-btn-alternate-add', $changesClassesWithoutIconName . 'rocket')
+            ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
+            ->setUseButtonTag(true)
+            ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTON_QUEUE_PUBLISH', 'Queue Publish'));
 
         /**
          * If enabled and preferAsync === true, we replace the default CMS buttons with Queue <action> buttons
-         * and add Force options to the additional actions menu as a fallback
+         * and add move the 'immediate' options to the additional actions menu as a fallback
          *
-         * If preferAsync === false, we replace the buttons with the Force actions but keep the text the same,
-         * and add the Queue options to the addtional actions menu
+         * If preferAsync === false, we add the Queue options to the addtional actions menu
          */
         if ($this->preferAsync()) {
             if ($canSave) {
-                $forceSave = FormAction::create('force_save', _t(__CLASS__ . '.BUTTONFORCESAVE', 'Force Save'))
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVE', 'Force Save'))
-                    ->addExtraClass('btn-secondary');
-                $moreOptions->push($forceSave);
                 $majorActions->removeByName('action_save');
-                $majorActions->push(
-                    FormAction::create('async_save', _t(__CLASS__ . '.BUTTONASYNCSAVED', 'Saved'))
-                        ->addExtraClass($noChangesClasses)
-                        ->setAttribute('data-btn-alternate-add', 'btn-primary font-icon-save')
-                        ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
-                        ->setUseButtonTag(true)
-                        ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVE', 'Queue Save'))
-                );
+                $moreOptions->push($saveButton);
+                $majorActions->push($queueSave);
+                $saveButton->setTitle(_t(__CLASS__ . '.BUTTON_IMMEDIATE_SAVED', 'Saved (immediate)'))
+                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTON_IMMEDIATE_SAVE', 'Save immediately'));
             };
-
             if ($canPublish) {
-                $forcePublish = FormAction::create(
-                    'force_publish',
-                    _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish')
-                )
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONFORCESAVEPUBLISH', 'Force Publish'))
-                    ->addExtraClass('btn-secondary');
-                $moreOptions->push($forcePublish);
                 $majorActions->removeByName('action_publish');
-                $majorActions->push(
-                    FormAction::create('async_publish', _t(__CLASS__ . '.BUTTONASYNCPUBLISHED', 'Published'))
-                        ->addExtraClass($noChangesClasses)
-                        ->setAttribute('data-btn-alternate-add', 'btn-primary font-icon-rocket')
-                        ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
-                        ->setUseButtonTag(true)
-                        ->setAttribute(
-                            'data-text-alternate',
-                            _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish')
-                        )
-                );
+                $moreOptions->push($publishButton);
+                $majorActions->push($queuePublish);
+                $publishButton->setTitle(_t(__CLASS__ . '.BUTTON_IMMEDIATE_PUBLISHED', 'Published (immediate)'))
+                    ->setAttribute(
+                        'data-text-alternate',
+                        _t(__CLASS__ . '.BUTTON_IMMEDIATE_PUBLISH', 'Publish immediately')
+                    );
             }
         } else {
             if ($canSave) {
-                $queueSave = FormAction::create('async_save', _t(__CLASS__ . '.BUTTONASYNCSAVE', 'Queue Save'))
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVE', 'Queue Save'))
-                    ->addExtraClass('btn-secondary');
                 $moreOptions->push($queueSave);
-                $majorActions->removeByName('action_save');
-                $majorActions->push(
-                    FormAction::create('force_save', _t(__CLASS__ . '.BUTTONASYNCSAVED', 'Saved'))
-                        ->addExtraClass($noChangesClasses)
-                        ->setAttribute('data-btn-alternate-add', 'btn-primary font-icon-save')
-                        ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
-                        ->setUseButtonTag(true)
-                        ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONSAVE', 'Save'))
-                );
             };
-
             if ($canPublish) {
-                $queuePublish = FormAction::create(
-                    'async_publish',
-                    _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish')
-                )
-                    ->setAttribute('data-text-alternate', _t(__CLASS__ . '.BUTTONASYNCSAVEPUBLISH', 'Queue Publish'))
-                    ->addExtraClass('btn-secondary');
                 $moreOptions->push($queuePublish);
-                $majorActions->removeByName('action_publish');
-                $majorActions->push(
-                    FormAction::create('force_publish', _t(__CLASS__ . '.BUTTONPUBLISHED', 'Published'))
-                        ->addExtraClass($noChangesClasses)
-                        ->setAttribute('data-btn-alternate-add', 'btn-primary font-icon-rocket')
-                        ->setAttribute('data-btn-alternate-remove', $noChangesClasses)
-                        ->setUseButtonTag(true)
-                        ->setAttribute(
-                            'data-text-alternate',
-                            _t(__CLASS__ . '.BUTTONSAVEPUBLISH', 'Publish')
-                        )
-                );
             }
         }
     }
 
     public function publishRecursive()
     {
-        $publishJob = AsyncPublishJob::create($this->owner, Versioned::LIVE);
+        $publishJob = AsyncPublish::create($this->owner, Versioned::LIVE);
         QueuedJobService::singleton()->queueJob($publishJob);
     }
 
     public function doPublishRecursive()
     {
-        $now = DBDatetime::now()->Rfc2822();
-
-        return DBDatetime::withFixedNow($now, function () {
-            /** @var DataObject|Versioned $owner */
-            $owner = $this->owner;
-
-            // get the last published version
-            $original = null;
-            if ($owner->hasExtension(Versioned::class) && $owner->isPublished()) {
-                $original = Versioned::get_by_stage($owner->baseClass(), Versioned::LIVE)
-                    ->byID($owner->ID);
-            }
-
-            $owner->invokeWithExtensions('onBeforePublishRecursive', $original);
-
-            // Create a new changeset for this item and publish it
-            $changeset = ChangeSet::create();
-            $changeset->IsInferred = true;
-            $changeset->Name = _t(
-                __CLASS__ . '.INFERRED_TITLE',
-                "Generated by publish of '{title}' at {created}",
-                [
-                    'title' => $owner->Title,
-                    'created' => DBDatetime::now()->Nice()
-                ]
-            );
-
-            $changeset->write();
-            $changeset->addObject($owner);
-
-            $result = $changeset->publish(true);
-            if ($result) {
-                $owner->invokeWithExtensions('onAfterPublishRecursive', $original);
-            }
-
-            return $result;
-        });
+        $recursivePublishable = $this->owner->getExtensionInstance(RecursivePublishable::class);
+        $recursivePublishable->setOwner($this->owner);
+        $result = $recursivePublishable->publishRecursive();
+        $recursivePublishable->clearOwner();
+        return $result;
     }
 
     public function canEdit($member = null)
@@ -213,7 +159,7 @@ class AsyncPublisherExtension extends Extension
      * @param string[] $classes
      * @return bool
      */
-    public function pendingAsyncJobsExist(array $classes = [AsyncDoSaveJob::class, AsyncPublishJob::class]): bool
+    public function pendingAsyncJobsExist(array $classes = [AsyncSave::class, AsyncPublish::class]): bool
     {
         return QueuedJobDescriptor::get()->filter([
             'Implementation' => $classes,
@@ -234,13 +180,27 @@ class AsyncPublisherExtension extends Extension
      */
     public function preferAsync()
     {
-        if (ClassInfo::hasMethod($this->owner, 'shouldPreferAsync')) {
+        if ($this->owner->hasMethod('shouldPreferAsync')) {
             return $this->owner->shouldPreferAsync();
         }
 
         return true;
     }
 
+    /**
+     * Generate a signature unique but consistent to this record
+     *
+     * Ultimately used by QueuedJobs, where we use it in turn above to find if there are existing async save/publish
+     * jobs waiting to be processed ({@see self::pendingAsyncJobsExist()})
+     *
+     * Queued jobs typically generate signatures based on the data of the job, where as the jobs relating to async
+     * save or publish relate to the record specifically - the data is of no consequence. This invariance makes
+     * searching for exisitng jobs queued for this record much easier to find - this way we avoid "race conditions"
+     * where data can be updated while a job to save is queued, leaving the content in an inconsistent state from
+     * the authors perspective.
+     *
+     * @return string
+     */
     public function generateSignature()
     {
         return md5(sprintf("%s-%s", $this->owner->ID, $this->owner->ClassName));
