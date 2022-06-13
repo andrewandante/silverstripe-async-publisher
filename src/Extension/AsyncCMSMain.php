@@ -27,13 +27,33 @@ class AsyncCMSMain extends Extension
         return $this->asyncSave($data, $form);
     }
 
+    /**
+     * perform the initial step of an asynchonous save
+     *
+     * Checks permissions to make the action and queues the job for processing later (asynchronously).
+     *
+     * @param array $data
+     * @param Form $form
+     * @return HTTPResponse
+     */
     public function asyncSave($data, $form)
     {
-        $record = $this->saveWithoutWrite($data, $form);
         $publishingToo = isset($data['publish']);
 
+        // Assert permissions here to prevent waiting for a job to fail
+        $record = $this->asyncGetRecordAndAssertPermissions($data);
+        if ($record instanceof HTTPResponse) {
+            return $record;
+        }
+
         $injector = Injector::inst();
-        $job = $injector->create(AsyncSave::class, $record, $publishingToo);
+        $job = $injector->create(
+            AsyncSave::class,
+            $this->owner,
+            $form->getName(),
+            $data,
+            $record->generateSignature()
+        );
         $queueService = $injector->get(QueuedJobService::class);
         $queueService->queueJob($job);
 
@@ -59,14 +79,14 @@ class AsyncCMSMain extends Extension
     }
 
     /**
-     * Copied and pasted straight out of {@see CMSMain::save} (from the vendor) excluding the lines that write
-     * and omitting response status setting, instead returning the record (new or existing).
+     * Copied and pasted straight out of {@see CMSMain::save}
+     * Returns the object to be saved - is handy here (before async) and in {@see AsyncSave::process} (during async)
      *
-     * @param array $data
-     * @param Form $form
-     * @return DataObject the object saved into
+     * @param array $data form submission data from the request
+     * @return DataObject|HTTPResponse data object to be saved into, or HTTP 403 response
+     * @throws HTTPResponse_Exception no such DataObject exists (HTTP 404)
      */
-    protected function saveWithoutWrite($data, $form)
+    public function asyncGetRecordAndAssertPermissions($data)
     {
         $className = $this->owner->config()->get('tree_class');
 
@@ -95,20 +115,37 @@ class AsyncCMSMain extends Extension
             return Security::permissionFailure($this->owner);
         }
 
-        // TODO Coupling to SiteTree
-        $record->HasBrokenLink = 0;
-        $record->HasBrokenFile = 0;
-
-        // Update the class instance if necessary
-        if (isset($data['ClassName']) && $data['ClassName'] != $record->ClassName) {
-            // Replace $record with a new instance of the new class
-            $newClassName = $data['ClassName'];
-            $record = $record->newClassInstance($newClassName);
-        }
-
-        // save form data into record
-        $form->saveInto($record);
-
         return $record;
+    }
+
+    /**
+     * Some controllers use state in executing their form factory methods
+     *
+     * Store enough state to enable the factory method to run later without issue
+     * @see CMSMain::EditForm()
+     * @see CMSMain::currentPageID()
+     * @see self::asyncRestoreState()
+     *
+     * @return array
+     */
+    public function asyncStoreState()
+    {
+        return [
+            'URLParams' => $this->owner->getURLParams()
+        ];
+    }
+
+    /**
+     * Restore enough controller state to be able to successfully recreate the form that was submitted
+     * from the controllers form factory method
+     * @see CMSMain::EditForm()
+     * @see CMSMain::currentPageID()
+     *
+     * @param array $stateData
+     * @return void
+     */
+    public function asyncRestoreState($stateData)
+    {
+        $this->owner->setURLParams($stateData['URLParams']);
     }
 }

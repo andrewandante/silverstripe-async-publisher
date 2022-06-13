@@ -10,8 +10,11 @@ class SometimesAsyncPage extends SiteTree implements TestOnly
 {
     public $shouldAsync = false;
 
+    public $shouldPreferAsyncCalls = 0;
+
     public function shouldPreferAsync()
     {
+        $this->shouldPreferAsyncCalls++;
         return $this->shouldAsync;
     }
 }
