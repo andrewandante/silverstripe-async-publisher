@@ -24,12 +24,6 @@
             "AndrewAndante\\SilverStripe\\AsyncPublisher\\Tests\\": "tests/"
         }
     },
-    "extra": {
-        "project-files-installed": [
-            "src/Page.php",
-            "src/PageController.php"
-        ]
-    },
     "scripts": {
         "silverstripe-standards": [
             "@phpcs"
@@ -37,6 +31,14 @@
         "phpcs": "phpcs src tests --standard=vendor/jdolba/silverstripe-coding-standards/definitions/php/phpcs-ss4.xml --extensions=php --encoding=utf-8",
         "phpcbf": "phpcbf src tests --standard=vendor/jdolba/silverstripe-coding-standards/definitions/php/phpcs-ss4.xml --extensions=php --encoding=utf-8",
         "phpcs-fix": "@phpcbf"
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "silverstripe/recipe-plugin": true,
+            "silverstripe/vendor-plugin": true
+        }
     },
     "minimum-stability": "dev",
     "prefer-stable": true
