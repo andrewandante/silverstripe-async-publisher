@@ -119,4 +119,44 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertTrue($refreshedPage->isPublished());
         $this->assertEquals('QueuePublishContent', $refreshedPage->getField('Content'));
     }
+
+    public function testPublishRecursive()
+    {
+        /** @var SiteTree|AsyncPublisherExtension $page */
+        $page = $this->objFromFixture(SiteTree::class, 'first');
+        $page->Content = 'PublishRecursiveContent';
+        $page->writeToStage(Versioned::DRAFT);
+        $signature = $page->generateSignature();
+
+        $this->assertFalse($page->pendingAsyncJobsExist());
+
+        /** @var SiteTree|AsyncPublisherExtension $refreshedPage */
+        $refreshedPage = SiteTree::get()->byID($page->ID);
+        $this->assertFalse($refreshedPage->isPublished());
+
+        $refreshedPage->publishRecursive();
+        $this->assertFalse($page->pendingAsyncJobsExist([AsyncSave::class]));
+        $this->assertTrue($page->pendingAsyncJobsExist([AsyncPublish::class]));
+
+        QueuedJobService::singleton()->runJob(
+            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncPublish::class])->first()->ID
+        );
+
+        $this->assertEquals(
+            1,
+            QueuedJobDescriptor::get()
+                ->filter([
+                    'Implementation' => AsyncPublish::class,
+                    'JobStatus' => QueuedJob::STATUS_COMPLETE,
+                    'Signature' => $signature,
+                ])
+                ->count()
+        );
+        $this->assertFalse($page->pendingAsyncJobsExist());
+
+        /** @var SiteTree|AsyncPublisherExtension $rerefreshedPage */
+        $rerefreshedPage = SiteTree::get()->byID($page->ID);
+        $this->assertTrue($rerefreshedPage->isPublished());
+        $this->assertEquals('PublishRecursiveContent', $rerefreshedPage->getField('Content'));
+    }
 }
