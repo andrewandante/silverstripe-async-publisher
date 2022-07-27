@@ -61,7 +61,7 @@ simply add the queueing actions to the "more options" menu
 ## Features
 
 - replaces the "Save" and "Publish" buttons with "Queue Save" and "Queue Publish"
-- adds "Force Save" and "Force Publish" to the "More Options" menu (in case of emergency)
+- adds "Save immediately" and "Publish immediately" to the "More Options" menu (in case of emergency)
 - prevents editing while jobs are in the queue to prevent weird race conditions
 
 ## Screenshots
@@ -72,7 +72,7 @@ simply add the queueing actions to the "more options" menu
 
 ## TODOS
 
-- test with Unpublish and Archive
+- test better with Unpublish and Archive
 - have a better representation of state when there are pending jobs
 - make it more configurable/extensible in general
 

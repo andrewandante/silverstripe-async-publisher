@@ -11,7 +11,7 @@ jobs:
           - DISPLAY=:99
           - CHROME_BIN=/usr/bin/google-chrome-stable
           - BASH_ENV=/root/.bashrc
-      - image: circleci/mysql:5.7
+      - image: cimg/mysql:5.7
         environment:
           - MYSQL_ROOT_PASSWORD=ubuntu
           - MYSQL_DATABASE=circle_test
@@ -45,10 +45,6 @@ jobs:
 
       # JS/SCSS/PHP Linting
       - run: composer silverstripe-standards
-
-      # shoe-horn in Page and PageController
-      - run: cp /var/www/mysite/www/tests/php/templates/PageController.php.tmpl /var/www/mysite/www/src/PageController.php
-      - run: cp /var/www/mysite/www/tests/php/templates/Page.php.tmpl /var/www/mysite/www/src/Page.php
 
       # dev/build
       - run: sudo -u vagrant vendor/bin/sake dev/build flush=1
