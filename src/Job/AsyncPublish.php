@@ -11,7 +11,7 @@ use SilverStripe\Versioned\Versioned;
 use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
 use Symbiote\QueuedJobs\Services\QueuedJob;
 
-class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
+class AsyncPublish extends AbstractQueuedJob implements QueuedJob
 {
     use Injectable;
 
@@ -44,7 +44,15 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
      */
     public function getTitle()
     {
-        return sprintf("Async Publish %s", $this->objectTitle);
+        return _t(
+            __CLASS__ . '.TITLE',
+            'Async publish "{title}" ({class} - #{ID})',
+            [
+                'title' => $this->objectTitle,
+                'class' => $this->objectClass,
+                'ID' => $this->objectID,
+            ]
+        );
     }
 
     /**
@@ -59,6 +67,11 @@ class AsyncPublishJob extends AbstractQueuedJob implements QueuedJob
             $this->addMessage('Object does not have AsyncPublisherExtension applied');
         } else {
             $object->doPublishRecursive();
+            $message = _t(
+                __CLASS__ . '.PUBLISHED',
+                "Published '{title}' from queue successfully.",
+                ['title' => $object->Title]
+            );
         }
 
         $this->isComplete = true;

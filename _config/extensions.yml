@@ -1,6 +1,10 @@
 ---
 name: asyncpublisher-extensions
+After: versionedownership
 ---
+# it is very important that this be applied after versionedownership
+# or the DataExtension method override of publishRecursive() will not work.
+# See SilverStripe\Core\Extensible::defineExtensionMethods
 SilverStripe\CMS\Controllers\CMSMain:
   extensions:
     - AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncCMSMain
