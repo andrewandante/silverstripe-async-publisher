@@ -2,19 +2,27 @@
 
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Tests\Fixture;
 
-use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
 use SilverStripe\CMS\Model\SiteTree;
 use SilverStripe\Dev\TestOnly;
 
 class SometimesAsyncPage extends SiteTree implements TestOnly
 {
+
+    /**
+     * @var bool
+     */
     public $shouldAsync = false;
 
-    public $shouldPreferAsyncCalls = 0;
+    public int $shouldPreferAsyncCalls = 0;
 
-    public function shouldPreferAsync()
+    /**
+     * @return bool
+     */
+    public function shouldPreferAsync(): bool
     {
         $this->shouldPreferAsyncCalls++;
+
         return $this->shouldAsync;
     }
+
 }

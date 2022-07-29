@@ -3,7 +3,6 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Tests;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncCMSMain;
-use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
 use AndrewAndante\SilverStripe\AsyncPublisher\Tests\Fixture\MutablePermissionsPage;
 use SilverStripe\CMS\Controllers\CMSMain;
 use SilverStripe\CMS\Model\SiteTree;
@@ -17,20 +16,31 @@ use Symbiote\QueuedJobs\DataObjects\QueuedJobDescriptor;
 
 class AsyncCMSMainTest extends SapphireTest
 {
+
+    /**
+     * @var string|array
+     */
     protected static $fixture_file = 'AsyncCMSMainTest.yml';
 
+    /**
+     * @var string[]
+     */
     protected static $extra_dataobjects = [MutablePermissionsPage::class];
 
+    /**
+     * @var string[][]
+     */
     protected static $required_extensions = [CMSMain::class => [AsyncCMSMain::class]];
 
-    public function setUp()
+    public function setUp(): void
     {
         parent::setUp();
+
         CMSMain::config()->set('tree_class', SiteTree::class);
         SSViewer::config()->set('themes', ['$default']);
     }
 
-    public function provideDeniedPermissions()
+    public function provideDeniedPermissions(): array
     {
         // We're testing the CMS editing workflow, so canCreate is irrelevant
         return [
@@ -41,11 +51,10 @@ class AsyncCMSMainTest extends SapphireTest
 
     /**
      * @dataProvider provideDeniedPermissions
-     *
      * @param string $falsePermission
      * @return void
      */
-    public function testRecordAndPermissionFailsWithInsufficientPermissions($falsePermission)
+    public function testRecordAndPermissionFailsWithInsufficientPermissions(string $falsePermission): void
     {
         MutablePermissionsPage::$$falsePermission = false;
         $page = $this->objFromFixture(MutablePermissionsPage::class, 'test');
@@ -55,16 +64,20 @@ class AsyncCMSMainTest extends SapphireTest
             'ID' => $page->ID,
             'ClassName' => MutablePermissionsPage::class,
         ];
+
         if ($falsePermission === 'canPublish') {
             $data['publish'] = true;
         }
+
         $response = $controller->asyncGetRecordAndAssertPermissions($data);
         $this->assertInstanceOf(HTTPResponse::class, $response);
         $this->assertSame(403, $response->getStatusCode());
+        // phpcs:disable SlevomatCodingStandard.Variables.UnusedVariable.UnusedVariable
         MutablePermissionsPage::$$falsePermission = true;
+        // phpcs:enable
     }
 
-    public function testRecordAndPermissionFailsWithBadID()
+    public function testRecordAndPermissionFailsWithBadID(): void
     {
         $this->expectException(HTTPResponse_Exception::class);
         $controller = new CMSMain();
@@ -74,7 +87,7 @@ class AsyncCMSMainTest extends SapphireTest
         ]);
     }
 
-    public function testAsyncSaveLogsAQueuedJobToPerformTheAsyncSaving()
+    public function testAsyncSaveLogsAQueuedJobToPerformTheAsyncSaving(): void
     {
         $page = $this->objFromFixture(MutablePermissionsPage::class, 'test');
         $controller = new CMSMain();
@@ -89,7 +102,7 @@ class AsyncCMSMainTest extends SapphireTest
         $this->assertTrue($page->pendingAsyncJobsExist());
     }
 
-    public function testAsyncStoreState()
+    public function testAsyncStoreState(): void
     {
         $urlParams = ['Action' => 'index'];
         $controller = new Controller();
@@ -99,7 +112,7 @@ class AsyncCMSMainTest extends SapphireTest
         $this->assertSame(['URLParams' => $urlParams], $extension->asyncStoreState());
     }
 
-    public function testAsyncRestoreState()
+    public function testAsyncRestoreState(): void
     {
         $updatedUrlParams = ['Action' => 'edit', 'ID' => 12];
         $state = ['URLParams' => $updatedUrlParams];
@@ -110,4 +123,5 @@ class AsyncCMSMainTest extends SapphireTest
         $extension->asyncRestoreState($state);
         $this->assertSame($updatedUrlParams, $controller->getURLParams());
     }
+
 }

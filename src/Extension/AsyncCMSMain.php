@@ -3,8 +3,8 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Extension;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
+use Psr\Container\NotFoundExceptionInterface;
 use SilverStripe\CMS\Model\SiteTree;
-use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPResponse;
 use SilverStripe\Control\HTTPResponse_Exception;
 use SilverStripe\Core\Extension;
@@ -16,14 +16,19 @@ use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class AsyncCMSMain extends Extension
 {
+
+    /**
+     * @var string[]
+     */
     private static $allowed_actions = [
         'asyncSave',
         'asyncPublish',
     ];
 
-    public function asyncPublish($data, $form)
+    public function asyncPublish(array $data, Form $form): HTTPResponse
     {
         $data['publish'] = 1;
+
         return $this->asyncSave($data, $form);
     }
 
@@ -35,13 +40,16 @@ class AsyncCMSMain extends Extension
      * @param array $data
      * @param Form $form
      * @return HTTPResponse
+     * @throws HTTPResponse_Exception
+     * @throws NotFoundExceptionInterface
      */
-    public function asyncSave($data, $form)
+    public function asyncSave(array $data, Form $form): HTTPResponse
     {
         $publishingToo = isset($data['publish']);
 
         // Assert permissions here to prevent waiting for a job to fail
         $record = $this->asyncGetRecordAndAssertPermissions($data);
+
         if ($record instanceof HTTPResponse) {
             return $record;
         }
@@ -57,24 +65,21 @@ class AsyncCMSMain extends Extension
         $queueService = $injector->get(QueuedJobService::class);
         $queueService->queueJob($job);
 
-        if ($publishingToo) {
-            $message = _t(
-                __CLASS__ . '.QUEUED_FOR_PUBLISHING',
-                "Queued '{title}' for saving and publishing successfully.",
-                ['title' => $record->Title]
-            );
-        } else {
-            $message = _t(
-                __CLASS__ . '.QUEUED_FOR_SAVING',
-                "Queued '{title}' for saving successfully.",
-                ['title' => $record->Title]
-            );
-        }
+        $message = $publishingToo ? _t(
+            self::class . '.QUEUED_FOR_PUBLISHING',
+            "Queued '{title}' for saving and publishing successfully.",
+            ['title' => $record->Title]
+        ) : _t(
+            self::class . '.QUEUED_FOR_SAVING',
+            "Queued '{title}' for saving successfully.",
+            ['title' => $record->Title]
+        );
 
         $this->owner->getResponse()->addHeader('X-Status', rawurlencode($message));
         $response = $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
         $response->addHeader('X-Reload', true);
         $response->addHeader('X-ControllerURL', $record->CMSEditLink());
+
         return $response;
     }
 
@@ -86,31 +91,36 @@ class AsyncCMSMain extends Extension
      * @return DataObject|HTTPResponse data object to be saved into, or HTTP 403 response
      * @throws HTTPResponse_Exception no such DataObject exists (HTTP 404)
      */
-    public function asyncGetRecordAndAssertPermissions($data)
+    public function asyncGetRecordAndAssertPermissions(array $data)
     {
         $className = $this->owner->config()->get('tree_class');
 
         // Existing or new record?
         $id = $data['ID'];
-        if (substr($id, 0, 3) != 'new') {
+
+        if (!str_starts_with($id ?? '', 'new')) {
             /** @var SiteTree $record */
             $record = DataObject::get_by_id($className, $id);
+
             // Check edit permissions
             if ($record && !$record->canEdit()) {
                 return Security::permissionFailure($this->owner);
             }
+
             if (!$record || !$record->ID) {
-                throw new HTTPResponse_Exception("Bad record ID #$id", 404);
+                throw new HTTPResponse_Exception('Bad record ID #' . $id, 404);
             }
         } else {
             if (!$className::singleton()->canCreate()) {
                 return Security::permissionFailure($this->owner);
             }
+
             $record = $this->owner->getNewItem($id, false);
         }
 
         // Check publishing permissions
-        $doPublish = !empty($data['publish']);
+        $doPublish = isset($data['publish']);
+
         if ($record && $doPublish && !$record->canPublish()) {
             return Security::permissionFailure($this->owner);
         }
@@ -122,30 +132,31 @@ class AsyncCMSMain extends Extension
      * Some controllers use state in executing their form factory methods
      *
      * Store enough state to enable the factory method to run later without issue
+     *
      * @see CMSMain::EditForm()
      * @see CMSMain::currentPageID()
      * @see self::asyncRestoreState()
-     *
      * @return array
      */
-    public function asyncStoreState()
+    public function asyncStoreState(): array
     {
         return [
-            'URLParams' => $this->owner->getURLParams()
+            'URLParams' => $this->owner->getURLParams(),
         ];
     }
 
     /**
      * Restore enough controller state to be able to successfully recreate the form that was submitted
      * from the controllers form factory method
+     *
      * @see CMSMain::EditForm()
      * @see CMSMain::currentPageID()
-     *
      * @param array $stateData
      * @return void
      */
-    public function asyncRestoreState($stateData)
+    public function asyncRestoreState(array $stateData): void
     {
         $this->owner->setURLParams($stateData['URLParams']);
     }
+
 }

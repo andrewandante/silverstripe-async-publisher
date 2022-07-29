@@ -3,7 +3,6 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
-use AndrewAndante\SilverStripe\AsyncPublisher\Service\AsyncPublisherService;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\ORM\DataObject;
@@ -13,11 +12,13 @@ use Symbiote\QueuedJobs\Services\QueuedJob;
 
 class AsyncPublish extends AbstractQueuedJob implements QueuedJob
 {
+
     use Injectable;
 
     public function __construct(?DataObject $object = null, ?string $toStage = null)
     {
         $this->signature = $this->randomSignature();
+
         if ($object) {
             $this->objectID = $object->ID;
             $this->objectClass = ClassInfo::class_name($object);
@@ -28,13 +29,14 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
         $this->toStage = $toStage ?? Versioned::LIVE;
     }
 
-    public function getJobType()
+    public function getJobType(): string
     {
         $this->totalSteps = 1;
+
         return QueuedJob::QUEUED;
     }
 
-    public function getSignature()
+    public function getSignature(): string
     {
         return $this->signature;
     }
@@ -42,10 +44,10 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
     /**
      * @inheritDoc
      */
-    public function getTitle()
+    public function getTitle(): string
     {
         return _t(
-            __CLASS__ . '.TITLE',
+            self::class . '.TITLE',
             'Async publish "{title}" ({class} - #{ID})',
             [
                 'title' => $this->objectTitle,
@@ -61,19 +63,21 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
     public function process()
     {
         $object = DataObject::get($this->objectClass)->byID($this->objectID);
+
         if (!$object || !$object->exists()) {
             $this->addMessage('Could not find object');
         } elseif (!$object->hasExtension(AsyncPublisherExtension::class)) {
             $this->addMessage('Object does not have AsyncPublisherExtension applied');
         } else {
             $object->doPublishRecursive();
-            $message = _t(
-                __CLASS__ . '.PUBLISHED',
+            $this->addMessage(_t(
+                self::class . '.PUBLISHED',
                 "Published '{title}' from queue successfully.",
                 ['title' => $object->Title]
-            );
+            ));
         }
 
         $this->isComplete = true;
     }
+
 }

@@ -3,8 +3,8 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Tests\Functional;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
-use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
 use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncPublish;
+use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
 use SilverStripe\CMS\Model\SiteTree;
 use SilverStripe\Dev\FunctionalTest;
 use SilverStripe\Versioned\Versioned;
@@ -14,13 +14,20 @@ use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class AsyncPublisherTest extends FunctionalTest
 {
+
+    /**
+     * @var array
+     */
     protected static $required_extensions = [
         SiteTree::class => [AsyncPublisherExtension::class],
     ];
 
+    /**
+     * @var string|array
+     */
     protected static $fixture_file = 'AsyncPublisherTest.yml';
 
-    public function testButtonsUpdate()
+    public function testButtonsUpdate(): void
     {
         $this->logInWithPermission();
         /** @var SiteTree|AsyncPublisherExtension $page */
@@ -46,14 +53,14 @@ class AsyncPublisherTest extends FunctionalTest
         // phpcs:enable
     }
 
-    public function testQueueSave()
+    public function testQueueSave(): void
     {
         $this->logInWithPermission();
         /** @var SiteTree|AsyncPublisherExtension $page */
         $page = $this->objFromFixture(SiteTree::class, 'first');
         $this->get($page->CMSEditLink());
         $response = $this->submitForm('Form_EditForm', 'action_asyncSave', [
-            'Content' => 'QueueSaveContent'
+            'Content' => 'QueueSaveContent',
         ]);
 
         $signature = $page->generateSignature();
@@ -83,14 +90,14 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertFalse($refreshedPage->isPublished());
     }
 
-    public function testQueueStraightToPublish()
+    public function testQueueStraightToPublish(): void
     {
         $this->logInWithPermission();
         /** @var SiteTree|AsyncPublisherExtension $page */
         $page = $this->objFromFixture(SiteTree::class, 'first');
         $this->get($page->CMSEditLink());
         $response = $this->submitForm('Form_EditForm', 'action_asyncPublish', [
-            'Content' => 'QueuePublishContent'
+            'Content' => 'QueuePublishContent',
         ]);
 
         $signature = $page->generateSignature();
@@ -120,7 +127,7 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertEquals('QueuePublishContent', $refreshedPage->getField('Content'));
     }
 
-    public function testPublishRecursive()
+    public function testPublishRecursive(): void
     {
         /** @var SiteTree|AsyncPublisherExtension $page */
         $page = $this->objFromFixture(SiteTree::class, 'first');
@@ -159,4 +166,5 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertTrue($rerefreshedPage->isPublished());
         $this->assertEquals('PublishRecursiveContent', $rerefreshedPage->getField('Content'));
     }
+
 }

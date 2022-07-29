@@ -8,6 +8,10 @@ use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
 
 class AsyncSave extends AbstractQueuedJob
 {
+
+    /**
+     * @var int
+     */
     protected $totalSteps = 0;
 
     /**
@@ -16,7 +20,6 @@ class AsyncSave extends AbstractQueuedJob
      * descriptors (job data is not set via constructor in this case).
      *
      * @see QueuedJobService::initialiseJob
-     *
      * @param Controller|null $controller
      * @param string|null $formName
      * @param array|null $submission
@@ -29,11 +32,13 @@ class AsyncSave extends AbstractQueuedJob
         ?string $jobSignature = null
     ) {
         if ($controller) {
-            $this->controllerClass = get_class($controller);
+            $this->controllerClass = $controller::class;
+
             if ($controller->hasMethod('asyncStoreState')) {
                 $this->controllerState = $controller->asyncStoreState();
             }
         }
+
         $this->formName = $formName;
         $this->submission = $submission;
         $this->andPublish = isset($submission['publish']);
@@ -42,31 +47,33 @@ class AsyncSave extends AbstractQueuedJob
         $this->signature = $jobSignature;
     }
 
-    public function getTitle()
+    public function getTitle(): string
     {
         return _t(
-            __CLASS__ . '.TITLE',
+            self::class . '.TITLE',
             'Async write{publish} "{title}" ({class} - {ID})',
             [
-                'publish' => $this->andPublish ? _t(__CLASS__ . '.AND_PUBLISH', ' and publish') : '',
+                'publish' => $this->andPublish ? _t(self::class . '.AND_PUBLISH', ' and publish') : '',
                 'title' => $this->submission['Title'],
                 'class' => $this->submission['ClassName'],
-                'ID' => $this->submission['ID'] ? '#' . $this->submission['ID'] : _t(__CLASS__ . '.NEW', 'new!'),
+                'ID' => $this->submission['ID'] ? '#' . $this->submission['ID'] : _t(self::class . '.NEW', 'new!'),
             ]
         );
     }
 
-    public function getSignature()
+    public function getSignature(): string
     {
         return $this->signature;
     }
 
-    public function process()
+    public function process(): void
     {
         $controller = Injector::inst()->create($this->controllerClass);
+
         if ($controller->hasMethod('asyncRestoreState')) {
             $controller->asyncRestoreState($this->controllerState);
         }
+
         $form = $controller->{$this->formName}();
         $form->loadDataFrom($this->submission);
 
@@ -83,7 +90,7 @@ class AsyncSave extends AbstractQueuedJob
         }
 
         // Update the class instance if necessary
-        if (isset($data['ClassName']) && $data['ClassName'] != $record->ClassName) {
+        if (isset($data['ClassName']) && $data['ClassName'] !== $record->ClassName) {
             // Replace $record with a new instance of the new class
             $newClassName = $data['ClassName'];
             $record = $record->newClassInstance($newClassName);
@@ -100,18 +107,20 @@ class AsyncSave extends AbstractQueuedJob
             // publish immediately - no point in queuing a second job when we're already executing asynchronously
             $record->doPublishRecursive();
             $message = _t(
-                __CLASS__ . '.PUBLISHED',
+                self::class . '.PUBLISHED',
                 "Saved and published '{title}' from queue successfully.",
                 ['title' => $record->Title]
             );
         } else {
             $message = _t(
-                __CLASS__ . '.SAVED',
+                self::class . '.SAVED',
                 "Saved '{title}' from queue successfully.",
                 ['title' => $record->Title]
             );
         }
+
         $this->addMessage($message);
         $this->isComplete = true;
     }
+
 }

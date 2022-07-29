@@ -7,4 +7,5 @@ use SilverStripe\Dev\TestOnly;
 
 class TestPage extends SiteTree implements TestOnly
 {
+
 }
