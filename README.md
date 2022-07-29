@@ -1,4 +1,4 @@
-# SilverStripe Asynchronous Publishing
+# Silverstripe Asynchronous Publishing
 
 [![CircleCI](https://circleci.com/gh/andrewandante/silverstripe-async-publisher/tree/main.svg?style=svg)](https://circleci.com/gh/andrewandante/silverstripe-async-publisher/tree/main)
 
@@ -6,23 +6,7 @@ Pushes writing and publishing to a Queued Job to avoid in-browser timeouts
 
 ## Installation
 
-Add the following to your `composer.json`:
-
-```json
-{
-    "require": {
-        "andrewandante/silverstripe-async-publisher": "dev-main"
-    },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:andrewandante/silverstripe-async-publisher.git"
-        }
-    ]
-}
-```
-
-then run `composer update andrewandante/silverstripe-async-publisher`
+`composer require andrewandante/silverstripe-async-publisher`
 
 Once the module is installed, simply apply `AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension`
 to any classes that you wish to enable Queued Publishing for:
@@ -73,7 +57,6 @@ simply add the queueing actions to the "more options" menu
 ## TODOS
 
 - test better with Unpublish and Archive
-- have a better representation of state when there are pending jobs
 - make it more configurable/extensible in general
 
 ## Maintainers
