@@ -6,7 +6,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: ghcr.io/silverstripeltd/bespoke-ci-base:3.2.1
+      - image: ghcr.io/silverstripeltd/bespoke-ci-base:4.0.0
         environment:
           - DISPLAY=:99
           - CHROME_BIN=/usr/bin/google-chrome-stable
@@ -21,7 +21,7 @@ jobs:
 
     steps:
       # Use correct php version
-      - run: php-switch 7.4
+      - run: php-switch 8.1
 
       # Start Apache, Nginx and Xvfb
       - run: sudo service apache2 start

@@ -3,30 +3,39 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Tests;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
-use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
 use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncPublish;
+use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
 use AndrewAndante\SilverStripe\AsyncPublisher\Tests\Fixture\SometimesAsyncPage;
 use AndrewAndante\SilverStripe\AsyncPublisher\Tests\Fixture\TestPage;
 use SilverStripe\Control\Controller;
 use SilverStripe\Dev\SapphireTest;
-use SilverStripe\Forms\Form;
 use Symbiote\QueuedJobs\Services\DefaultQueueHandler;
 use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class AsyncPublisherExtensionTest extends SapphireTest
 {
+
+    /**
+     * @var bool
+     */
     protected $usesDatabase = true;
 
+    /**
+     * @var string[]
+     */
     protected static $extra_dataobjects = [
         TestPage::class,
     ];
 
+    /**
+     * @var string[][]
+     */
     protected static $required_extensions = [
         TestPage::class => [AsyncPublisherExtension::class],
         SometimesAsyncPage::class => [AsyncPublisherExtension::class],
     ];
 
-    public function testPendingAsyncJobsExistWithAsyncSave()
+    public function testPendingAsyncJobsExistWithAsyncSave(): void
     {
         $page = new TestPage();
         $page->Title = 'Initial page name';
@@ -46,7 +55,7 @@ class AsyncPublisherExtensionTest extends SapphireTest
         $this->assertTrue($page->pendingAsyncJobsExist());
     }
 
-    public function testPendingAsyncJobsExistWithAsyncPublish()
+    public function testPendingAsyncJobsExistWithAsyncPublish(): void
     {
         $page = new TestPage();
         $page->write();
@@ -62,7 +71,7 @@ class AsyncPublisherExtensionTest extends SapphireTest
         $this->assertTrue($page->pendingAsyncJobsExist());
     }
 
-    public function testPreferAsyncDelegatesToOwner()
+    public function testPreferAsyncDelegatesToOwner(): void
     {
         $page = new SometimesAsyncPage();
         $page->shouldAsync = true;
@@ -72,10 +81,11 @@ class AsyncPublisherExtensionTest extends SapphireTest
         $this->assertSame(2, $page->shouldPreferAsyncCalls);
     }
 
-    public function testJobSignatureGenerationIsConsistentForExistingObjectsIndependentOfDataVariance()
+    public function testJobSignatureGenerationIsConsistentForExistingObjectsIndependentOfDataVariance(): void
     {
         $page = new TestPage(['ID' => 12, 'Title' => 'Intro']);
         $oldSignature = $page->generateSignature();
+
         foreach (['one', 'two', 'three', 'four', 'five', "everybody in the car so come on let's ride"] as $newTitle) {
             $newObjectSameId = new TestPage(['ID' => 12, 'Title' => 'Trumpet']);
             $newObjectSameId->update(['Title' => $newTitle]);
@@ -84,4 +94,5 @@ class AsyncPublisherExtensionTest extends SapphireTest
             $oldSignature = $newSignature;
         }
     }
+
 }
