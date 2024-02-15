@@ -6,7 +6,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: ghcr.io/silverstripeltd/bespoke-ci-base:4.0.0
+      - image: ghcr.io/silverstripeltd/bespoke-ci-base:4.1.0
         environment:
           - DISPLAY=:99
           - CHROME_BIN=/usr/bin/google-chrome-stable
