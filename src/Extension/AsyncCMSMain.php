@@ -94,6 +94,9 @@ class AsyncCMSMain extends Extension
     public function asyncGetRecordAndAssertPermissions(array $data)
     {
         $className = $this->owner->config()->get('tree_class');
+        if (!$className) {
+            $className = $this->owner->config()->get('model_class');
+        }
 
         // Existing or new record?
         $id = $data['ID'];
