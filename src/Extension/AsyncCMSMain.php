@@ -78,7 +78,7 @@ class AsyncCMSMain extends Extension
         $this->owner->getResponse()->addHeader('X-Status', rawurlencode($message));
         $response = $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
         $response->addHeader('X-Reload', true);
-        $response->addHeader('X-ControllerURL', $record->CMSEditLink());
+        $response->addHeader('X-ControllerURL', $record->getCMSEditLink());
 
         return $response;
     }
@@ -93,17 +93,14 @@ class AsyncCMSMain extends Extension
      */
     public function asyncGetRecordAndAssertPermissions(array $data)
     {
-        $className = $this->owner->config()->get('tree_class');
-        if (!$className) {
-            $className = $this->owner->config()->get('model_class');
-        }
+        $className = $this->owner->config()->get('model_class');
 
         // Existing or new record?
         $id = $data['ID'];
 
         if (!str_starts_with($id ?? '', 'new')) {
             /** @var SiteTree $record */
-            $record = DataObject::get_by_id($className, $id);
+            $record = DataObject::get($className)->setUseCache(true)->byID($id);
 
             // Check edit permissions
             if ($record && !$record->canEdit()) {
