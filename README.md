@@ -61,4 +61,4 @@ simply add the queueing actions to the "more options" menu
 
 ## Maintainers
 
- * Andrew Paxley <andrew.paxley@silverstripe.com>
+ * Andrew Paxley <andrewandante@gmail.com>

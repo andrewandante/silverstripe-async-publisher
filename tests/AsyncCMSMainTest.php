@@ -40,7 +40,7 @@ class AsyncCMSMainTest extends SapphireTest
         SSViewer::config()->set('themes', ['$default']);
     }
 
-    public function provideDeniedPermissions(): array
+    public static function provideDeniedPermissions(): array
     {
         // We're testing the CMS editing workflow, so canCreate is irrelevant
         return [
