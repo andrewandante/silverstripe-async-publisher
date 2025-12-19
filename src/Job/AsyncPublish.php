@@ -75,9 +75,9 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
                 "Published '{title}' from queue successfully.",
                 ['title' => $object->Title]
             ));
+            $this->isComplete = true;
         }
 
-        $this->isComplete = true;
     }
 
 }

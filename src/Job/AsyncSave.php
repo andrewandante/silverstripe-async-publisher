@@ -90,9 +90,9 @@ class AsyncSave extends AbstractQueuedJob
         }
 
         // Update the class instance if necessary
-        if (isset($data['ClassName']) && $data['ClassName'] !== $record->ClassName) {
+        if (isset($this->submission['ClassName']) && $this->submission['ClassName'] !== $record->ClassName) {
             // Replace $record with a new instance of the new class
-            $newClassName = $data['ClassName'];
+            $newClassName = $this->submission['ClassName'];
             $record = $record->newClassInstance($newClassName);
         }
 
