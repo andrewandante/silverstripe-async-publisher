@@ -207,7 +207,7 @@ class AsyncPublisherTest extends FunctionalTest
         $signature = $newPage->generateSignature();
 
         QueuedJobService::singleton()->runJob(
-            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncSave::class])->first()->ID
+            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncSave::class, 'Signature' => $signature])->first()->ID
         );
 
         $this->assertEquals(
@@ -220,6 +220,7 @@ class AsyncPublisherTest extends FunctionalTest
                 ])
                 ->count()
         );
+        $this->assertFalse($newPage->pendingAsyncJobsExist());
 
         // After the job runs, the record in DB should have the submitted title.
         $savedPage = SiteTree::get()->byID($newPage->ID);
@@ -267,7 +268,7 @@ class AsyncPublisherTest extends FunctionalTest
         $signature = $newPage->generateSignature();
 
         QueuedJobService::singleton()->runJob(
-            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncSave::class])->first()->ID
+            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncSave::class, 'Signature' => $signature])->first()->ID
         );
 
         $this->assertEquals(
@@ -280,6 +281,7 @@ class AsyncPublisherTest extends FunctionalTest
                 ])
                 ->count()
         );
+        $this->assertFalse($newPage->pendingAsyncJobsExist());
 
         // After the job runs, the record should be published.
         $publishedPage = SiteTree::get()->byID($newPage->ID);
