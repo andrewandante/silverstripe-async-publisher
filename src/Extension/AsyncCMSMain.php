@@ -54,6 +54,19 @@ class AsyncCMSMain extends Extension
             return $record;
         }
 
+        // New records have no DB row yet. Write a minimal row now so the job
+        // can look up the record by a real ID when it runs later.
+        if ($record->ID === 0) {
+            $record->write();
+            $data['ID'] = $record->ID;
+
+            // Update the URL params so asyncStoreState() records the real ID,
+            // not the temporary "new-xxx" placeholder.
+            $urlParams = $this->owner->getURLParams();
+            $urlParams['ID'] = (string) $record->ID;
+            $this->owner->setURLParams($urlParams);
+        }
+
         $injector = Injector::inst();
         $job = $injector->create(
             AsyncSave::class,
@@ -94,6 +107,7 @@ class AsyncCMSMain extends Extension
     public function asyncGetRecordAndAssertPermissions(array $data)
     {
         $className = $this->owner->config()->get('tree_class');
+
         if (!$className) {
             $className = $this->owner->config()->get('model_class');
         }
