@@ -3,6 +3,7 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
+use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\Session;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DataObject;
@@ -94,9 +95,16 @@ class AsyncSave extends AbstractQueuedJob
             $controller->asyncRestoreState($this->controllerState);
         }
 
-        // Set up an empty session on the request so CMS code that calls
-        // getRequest()->getSession() does not throw during job processing.
-        $controller->getRequest()->setSession(new Session([]));
+        // Create a real HTTPRequest with a session so Form::getRequest() and
+        // Controller::curr()->getRequest()->getSession() work during job processing.
+        // A NullHTTPRequest (the default on a freshly created controller) is skipped
+        // by Form::getRequest(), which causes BadMethodCallException when building forms.
+        $urlParams = $this->controllerState['URLParams'] ?? [];
+        $recordID = $urlParams['ID'] ?? ($this->submission['ID'] ?? 0);
+        $request = new HTTPRequest('GET', '/admin/pages/edit/EditForm/' . $recordID);
+        $request->setSession(new Session([]));
+        $request->setRouteParams($urlParams);
+        $controller->setRequest($request);
 
         // Push the controller onto the stack so Controller::curr() returns a valid
         // controller for CMS extensions that expect an active HTTP context (e.g.
