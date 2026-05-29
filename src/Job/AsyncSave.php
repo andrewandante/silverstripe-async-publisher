@@ -3,6 +3,7 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
+use SilverStripe\Control\Session;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Security\Member;
@@ -92,6 +93,10 @@ class AsyncSave extends AbstractQueuedJob
         if ($controller->hasMethod('asyncRestoreState')) {
             $controller->asyncRestoreState($this->controllerState);
         }
+
+        // Set up an empty session on the request so CMS code that calls
+        // getRequest()->getSession() does not throw during job processing.
+        $controller->getRequest()->setSession(new Session([]));
 
         // Push the controller onto the stack so Controller::curr() returns a valid
         // controller for CMS extensions that expect an active HTTP context (e.g.
