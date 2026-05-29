@@ -83,7 +83,7 @@ class AsyncSave extends AbstractQueuedJob
         // Restore the member who queued the job so that CMS permission checks
         // (e.g. canView() on a draft-only record) pass during job processing.
         if ($this->memberID) {
-            $member = DataObject::get(Member::class)->byID($this->memberID);
+            $member = DataObject::get_by_id(Member::class, $this->memberID);
             if ($member) {
                 Security::setCurrentUser($member);
             }
@@ -98,8 +98,8 @@ class AsyncSave extends AbstractQueuedJob
         // Create a real HTTPRequest with a session so Form::getRequest() and
         // Controller::curr()->getRequest()->getSession() work during job processing.
         $urlParams = $this->controllerState['URLParams'] ?? [];
-        $recordID = $urlParams['ID'] ?? ($this->submission['ID'] ?? 0);
-        $request = new HTTPRequest('GET', '/admin/pages/edit/EditForm/' . $recordID);
+        $requestURL = $this->controllerState['RequestURL'] ?? '/';
+        $request = new HTTPRequest('GET', $requestURL);
         $request->setSession(new Session([]));
         $request->setRouteParams($urlParams);
         $controller->setRequest($request);
@@ -126,9 +126,9 @@ class AsyncSave extends AbstractQueuedJob
             }
 
             // Update the class instance if necessary
-            if (isset($data['ClassName']) && $data['ClassName'] !== $record->ClassName) {
+            if (isset($this->submission['ClassName']) && $this->submission['ClassName'] !== $record->ClassName) {
                 // Replace $record with a new instance of the new class
-                $newClassName = $data['ClassName'];
+                $newClassName = $this->submission['ClassName'];
                 $record = $record->newClassInstance($newClassName);
             }
 

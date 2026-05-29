@@ -57,7 +57,8 @@ class AsyncCMSMain extends Extension
         // New records have no DB row yet. Write a minimal row now so the job
         // can look up the record by a real ID when it runs later.
         if ($record->ID === 0) {
-            $record->write();
+            // writeWithoutVersion avoids creating a version stub with no form data.
+            $record->writeWithoutVersion();
             $data['ID'] = $record->ID;
 
             // Update the URL params so asyncStoreState() records the real ID,
@@ -158,7 +159,8 @@ class AsyncCMSMain extends Extension
     public function asyncStoreState(): array
     {
         return [
-            'URLParams' => $this->owner->getURLParams(),
+            'URLParams'  => $this->owner->getURLParams(),
+            'RequestURL' => $this->owner->getRequest()->getURL(true),
         ];
     }
 

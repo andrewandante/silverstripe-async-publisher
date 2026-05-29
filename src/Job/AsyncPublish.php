@@ -3,7 +3,7 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
-use SilverStripe\Control\Controller;
+use SilverStripe\CMS\Controllers\CMSMain;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\Session;
 use SilverStripe\Core\ClassInfo;
@@ -77,16 +77,16 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
     {
         // Restore the member who queued the job so permission checks pass.
         if ($this->memberID) {
-            $member = DataObject::get(Member::class)->byID($this->memberID);
+            $member = DataObject::get_by_id(Member::class, $this->memberID);
             if ($member) {
                 Security::setCurrentUser($member);
             }
         }
 
-        // Create a real request with session and push a controller so
+        // Create a real request with session and push a CMS controller so
         // CMS extensions that call Controller::curr() work during publish.
-        $controller = Injector::inst()->create(Controller::class);
-        $request = new HTTPRequest('GET', '/');
+        $controller = Injector::inst()->create(CMSMain::class);
+        $request = new HTTPRequest('GET', '/admin/pages/');
         $request->setSession(new Session([]));
         $controller->setRequest($request);
         $controller->pushCurrent();
