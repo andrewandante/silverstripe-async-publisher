@@ -97,8 +97,6 @@ class AsyncSave extends AbstractQueuedJob
 
         // Create a real HTTPRequest with a session so Form::getRequest() and
         // Controller::curr()->getRequest()->getSession() work during job processing.
-        // A NullHTTPRequest (the default on a freshly created controller) is skipped
-        // by Form::getRequest(), which causes BadMethodCallException when building forms.
         $urlParams = $this->controllerState['URLParams'] ?? [];
         $recordID = $urlParams['ID'] ?? ($this->submission['ID'] ?? 0);
         $request = new HTTPRequest('GET', '/admin/pages/edit/EditForm/' . $recordID);
