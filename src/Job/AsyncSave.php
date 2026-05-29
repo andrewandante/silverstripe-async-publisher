@@ -3,6 +3,7 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
+use SilverStripe\Control\Director;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Security\Member;
@@ -93,53 +94,62 @@ class AsyncSave extends AbstractQueuedJob
             $controller->asyncRestoreState($this->controllerState);
         }
 
-        $form = $controller->{$this->formName}();
-        $form->loadDataFrom($this->submission);
+        // Push the controller onto the stack so Controller::curr() returns a valid
+        // controller for CMS extensions that expect an active HTTP context (e.g.
+        // WorkflowEmbargoExpiryExtension calls Controller::curr() when building fields).
+        Controller::pushCurrent($controller);
 
-        $record = $controller->asyncGetRecordAndAssertPermissions($this->submission);
+        try {
+            $form = $controller->{$this->formName}();
+            $form->loadDataFrom($this->submission);
 
-        // START code copied from CMSMain::save
+            $record = $controller->asyncGetRecordAndAssertPermissions($this->submission);
 
-        // TODO Coupling to SiteTree
-        $record->HasBrokenLink = 0;
-        $record->HasBrokenFile = 0;
+            // START code copied from CMSMain::save
 
-        if (!$record->ObsoleteClassName) {
-            $record->writeWithoutVersion();
+            // TODO Coupling to SiteTree
+            $record->HasBrokenLink = 0;
+            $record->HasBrokenFile = 0;
+
+            if (!$record->ObsoleteClassName) {
+                $record->writeWithoutVersion();
+            }
+
+            // Update the class instance if necessary
+            if (isset($data['ClassName']) && $data['ClassName'] !== $record->ClassName) {
+                // Replace $record with a new instance of the new class
+                $newClassName = $data['ClassName'];
+                $record = $record->newClassInstance($newClassName);
+            }
+
+            // save form data into record
+            $form->saveInto($record);
+            $record->write();
+
+            // END code copied from CMSMain::save
+
+            // Errors will have been thrown before we reach this point; assume success if we're here (like CMSMain::save)
+            if ($this->andPublish) {
+                // publish immediately - no point in queuing a second job when we're already executing asynchronously
+                $record->doPublishRecursive();
+                $message = _t(
+                    self::class . '.PUBLISHED',
+                    "Saved and published '{title}' from queue successfully.",
+                    ['title' => $record->Title]
+                );
+            } else {
+                $message = _t(
+                    self::class . '.SAVED',
+                    "Saved '{title}' from queue successfully.",
+                    ['title' => $record->Title]
+                );
+            }
+
+            $this->addMessage($message);
+            $this->isComplete = true;
+        } finally {
+            Controller::popCurrent();
         }
-
-        // Update the class instance if necessary
-        if (isset($data['ClassName']) && $data['ClassName'] !== $record->ClassName) {
-            // Replace $record with a new instance of the new class
-            $newClassName = $data['ClassName'];
-            $record = $record->newClassInstance($newClassName);
-        }
-
-        // save form data into record
-        $form->saveInto($record);
-        $record->write();
-
-        // END code copied from CMSMain::save
-
-        // Errors will have been thrown before we reach this point; assume success if we're here (like CMSMain::save)
-        if ($this->andPublish) {
-            // publish immediately - no point in queuing a second job when we're already executing asynchronously
-            $record->doPublishRecursive();
-            $message = _t(
-                self::class . '.PUBLISHED',
-                "Saved and published '{title}' from queue successfully.",
-                ['title' => $record->Title]
-            );
-        } else {
-            $message = _t(
-                self::class . '.SAVED',
-                "Saved '{title}' from queue successfully.",
-                ['title' => $record->Title]
-            );
-        }
-
-        $this->addMessage($message);
-        $this->isComplete = true;
     }
 
 }
