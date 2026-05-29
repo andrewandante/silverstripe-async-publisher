@@ -5,7 +5,6 @@ namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
-use SilverStripe\Control\NullHTTPRequest;
 use SilverStripe\Control\Session;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
