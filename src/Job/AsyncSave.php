@@ -3,7 +3,6 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
-use SilverStripe\Control\Director;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Security\Member;
@@ -97,7 +96,7 @@ class AsyncSave extends AbstractQueuedJob
         // Push the controller onto the stack so Controller::curr() returns a valid
         // controller for CMS extensions that expect an active HTTP context (e.g.
         // WorkflowEmbargoExpiryExtension calls Controller::curr() when building fields).
-        Controller::pushCurrent($controller);
+        $controller->pushCurrent();
 
         try {
             $form = $controller->{$this->formName}();
@@ -148,7 +147,7 @@ class AsyncSave extends AbstractQueuedJob
             $this->addMessage($message);
             $this->isComplete = true;
         } finally {
-            Controller::popCurrent();
+            $controller->popCurrent();
         }
     }
 
