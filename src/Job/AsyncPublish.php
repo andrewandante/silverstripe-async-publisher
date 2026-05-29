@@ -3,9 +3,16 @@
 namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
+use SilverStripe\Control\Controller;
+use SilverStripe\Control\HTTPRequest;
+use SilverStripe\Control\NullHTTPRequest;
+use SilverStripe\Control\Session;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
+use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DataObject;
+use SilverStripe\Security\Member;
+use SilverStripe\Security\Security;
 use SilverStripe\Versioned\Versioned;
 use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
 use Symbiote\QueuedJobs\Services\QueuedJob;
@@ -24,6 +31,13 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
             $this->objectClass = ClassInfo::class_name($object);
             $this->objectTitle = $object->Title ?? 'unknown';
             $this->signature = $object->generateSignature();
+
+            // Store the member who queued the job so permission checks pass
+            // when the job runs in a context with no logged-in user.
+            $member = Security::getCurrentUser();
+            if ($member) {
+                $this->memberID = $member->ID;
+            }
         }
 
         $this->toStage = $toStage ?? Versioned::LIVE;
@@ -62,22 +76,42 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
      */
     public function process()
     {
-        $object = DataObject::get($this->objectClass)->byID($this->objectID);
-
-        if (!$object || !$object->exists()) {
-            $this->addMessage('Could not find object');
-        } elseif (!$object->hasExtension(AsyncPublisherExtension::class)) {
-            $this->addMessage('Object does not have AsyncPublisherExtension applied');
-        } else {
-            $object->doPublishRecursive();
-            $this->addMessage(_t(
-                self::class . '.PUBLISHED',
-                "Published '{title}' from queue successfully.",
-                ['title' => $object->Title]
-            ));
+        // Restore the member who queued the job so permission checks pass.
+        if ($this->memberID) {
+            $member = DataObject::get(Member::class)->byID($this->memberID);
+            if ($member) {
+                Security::setCurrentUser($member);
+            }
         }
 
-        $this->isComplete = true;
+        // Create a real request with session and push a controller so
+        // CMS extensions that call Controller::curr() work during publish.
+        $controller = Injector::inst()->create(Controller::class);
+        $request = new HTTPRequest('GET', '/');
+        $request->setSession(new Session([]));
+        $controller->setRequest($request);
+        $controller->pushCurrent();
+
+        try {
+            $object = DataObject::get($this->objectClass)->byID($this->objectID);
+
+            if (!$object || !$object->exists()) {
+                $this->addMessage('Could not find object');
+            } elseif (!$object->hasExtension(AsyncPublisherExtension::class)) {
+                $this->addMessage('Object does not have AsyncPublisherExtension applied');
+            } else {
+                $object->doPublishRecursive();
+                $this->addMessage(_t(
+                    self::class . '.PUBLISHED',
+                    "Published '{title}' from queue successfully.",
+                    ['title' => $object->Title]
+                ));
+            }
+
+            $this->isComplete = true;
+        } finally {
+            $controller->popCurrent();
+        }
     }
 
 }
