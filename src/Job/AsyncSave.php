@@ -4,6 +4,9 @@ namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\Security\Member;
+use SilverStripe\Security\Security;
 use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
 
 class AsyncSave extends AbstractQueuedJob
@@ -37,6 +40,13 @@ class AsyncSave extends AbstractQueuedJob
             if ($controller->hasMethod('asyncStoreState')) {
                 $this->controllerState = $controller->asyncStoreState();
             }
+
+            // Store the member who queued the job so permission checks pass
+            // when the job runs in a context with no logged-in user.
+            $member = Security::getCurrentUser();
+            if ($member) {
+                $this->memberID = $member->ID;
+            }
         }
 
         $this->formName = $formName;
@@ -68,6 +78,15 @@ class AsyncSave extends AbstractQueuedJob
 
     public function process(): void
     {
+        // Restore the member who queued the job so that CMS permission checks
+        // (e.g. canView() on a draft-only record) pass during job processing.
+        if ($this->memberID) {
+            $member = DataObject::get(Member::class)->byID($this->memberID);
+            if ($member) {
+                Security::setCurrentUser($member);
+            }
+        }
+
         $controller = Injector::inst()->create($this->controllerClass);
 
         if ($controller->hasMethod('asyncRestoreState')) {
