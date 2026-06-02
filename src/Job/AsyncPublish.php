@@ -4,11 +4,11 @@ namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use AndrewAndante\SilverStripe\AsyncPublisher\Extension\AsyncPublisherExtension;
 use SilverStripe\CMS\Controllers\CMSMain;
+use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\Session;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injectable;
-use SilverStripe\Core\Injector\Injector;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Security;
@@ -34,6 +34,7 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
             // Store the member who queued the job so permission checks pass
             // when the job runs in a context with no logged-in user.
             $member = Security::getCurrentUser();
+
             if ($member) {
                 $this->memberID = $member->ID;
             }
@@ -77,40 +78,60 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
     {
         // Restore the member who queued the job so permission checks pass.
         if ($this->memberID) {
-            $member = DataObject::get_by_id(Member::class, $this->memberID);
+            $member = Member::get()->byID($this->memberID);
+
             if ($member) {
                 Security::setCurrentUser($member);
             }
         }
 
-        // Create a real request with session and push a CMS controller so
-        // CMS extensions that call Controller::curr() work during publish.
-        $controller = Injector::inst()->create(CMSMain::class);
+        $object = DataObject::get($this->objectClass)->byID($this->objectID);
+
+        if (!$object || !$object->exists()) {
+            $this->addMessage('Could not find object');
+            $this->isComplete = true;
+            return;
+        }
+
+        if (!$object->hasExtension(AsyncPublisherExtension::class)) {
+            $this->addMessage('Object does not have AsyncPublisherExtension applied');
+            $this->isComplete = true;
+            return;
+        }
+
+        $controller = Controller::curr() === null ? $this->createDummyController() : null;
+
+        try {
+            $object->doPublishRecursive();
+            $this->addMessage(_t(
+                self::class . '.PUBLISHED',
+                "Published '{title}' from queue successfully.",
+                ['title' => $object->Title]
+            ));
+        } finally {
+            if ($controller) {
+                $controller->popCurrent();
+            }
+        }
+
+        $this->isComplete = true;
+    }
+
+    /**
+     * Creates a CMSMain controller with a request and session and pushes it onto the
+     * stack so CMS extensions that call Controller::curr() work during publish.
+     *
+     * @return Controller
+     */
+    private function createDummyController(): Controller
+    {
+        $controller = CMSMain::create();
         $request = new HTTPRequest('GET', '/admin/pages/');
         $request->setSession(new Session([]));
         $controller->setRequest($request);
         $controller->pushCurrent();
 
-        try {
-            $object = DataObject::get($this->objectClass)->byID($this->objectID);
-
-            if (!$object || !$object->exists()) {
-                $this->addMessage('Could not find object');
-            } elseif (!$object->hasExtension(AsyncPublisherExtension::class)) {
-                $this->addMessage('Object does not have AsyncPublisherExtension applied');
-            } else {
-                $object->doPublishRecursive();
-                $this->addMessage(_t(
-                    self::class . '.PUBLISHED',
-                    "Published '{title}' from queue successfully.",
-                    ['title' => $object->Title]
-                ));
-            }
-
-            $this->isComplete = true;
-        } finally {
-            $controller->popCurrent();
-        }
+        return $controller;
     }
 
 }

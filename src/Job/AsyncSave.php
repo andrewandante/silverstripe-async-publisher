@@ -4,9 +4,9 @@ namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
+use SilverStripe\Control\NullHTTPRequest;
 use SilverStripe\Control\Session;
 use SilverStripe\Core\Injector\Injector;
-use SilverStripe\ORM\DataObject;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Security;
 use Symbiote\QueuedJobs\Services\AbstractQueuedJob;
@@ -46,6 +46,7 @@ class AsyncSave extends AbstractQueuedJob
             // Store the member who queued the job so permission checks pass
             // when the job runs in a context with no logged-in user.
             $member = Security::getCurrentUser();
+
             if ($member) {
                 $this->memberID = $member->ID;
             }
@@ -83,7 +84,7 @@ class AsyncSave extends AbstractQueuedJob
         // Restore the member who queued the job so that CMS permission checks
         // (e.g. canView() on a draft-only record) pass during job processing.
         if ($this->memberID) {
-            $member = DataObject::get_by_id(Member::class, $this->memberID);
+            $member = Member::get()->byID($this->memberID);
             if ($member) {
                 Security::setCurrentUser($member);
             }
@@ -95,27 +96,16 @@ class AsyncSave extends AbstractQueuedJob
             $controller->asyncRestoreState($this->controllerState);
         }
 
-        // Create a real HTTPRequest with a session so Form::getRequest() and
-        // Controller::curr()->getRequest()->getSession() work during job processing.
-        $urlParams = $this->controllerState['URLParams'] ?? [];
-        $requestURL = $this->controllerState['RequestURL'] ?? '/';
-        $request = new HTTPRequest('GET', $requestURL);
-        $request->setSession(new Session([]));
-        $request->setRouteParams($urlParams);
-        $controller->setRequest($request);
-
-        // Push the controller onto the stack so Controller::curr() returns a valid
-        // controller for CMS extensions that expect an active HTTP context (e.g.
-        // WorkflowEmbargoExpiryExtension calls Controller::curr() when building fields).
-        $controller->pushCurrent();
+        // A fresh controller has NullHTTPRequest by default — check for that, not null.
+        $pushed = $controller->getRequest() instanceof NullHTTPRequest
+            ? $this->pushControllerWithRequest($controller)
+            : null;
 
         try {
             $form = $controller->{$this->formName}();
             $form->loadDataFrom($this->submission);
 
             $record = $controller->asyncGetRecordAndAssertPermissions($this->submission);
-
-            // START code copied from CMSMain::save
 
             // TODO Coupling to SiteTree
             $record->HasBrokenLink = 0;
@@ -125,20 +115,13 @@ class AsyncSave extends AbstractQueuedJob
                 $record->writeWithoutVersion();
             }
 
-            // Update the class instance if necessary
             if (isset($this->submission['ClassName']) && $this->submission['ClassName'] !== $record->ClassName) {
-                // Replace $record with a new instance of the new class
-                $newClassName = $this->submission['ClassName'];
-                $record = $record->newClassInstance($newClassName);
+                $record = $record->newClassInstance($this->submission['ClassName']);
             }
 
-            // save form data into record
             $form->saveInto($record);
             $record->write();
 
-            // END code copied from CMSMain::save
-
-            // Errors will have been thrown before we reach this point; assume success if we're here (like CMSMain::save)
             if ($this->andPublish) {
                 // publish immediately - no point in queuing a second job when we're already executing asynchronously
                 $record->doPublishRecursive();
@@ -156,10 +139,29 @@ class AsyncSave extends AbstractQueuedJob
             }
 
             $this->addMessage($message);
-            $this->isComplete = true;
         } finally {
-            $controller->popCurrent();
+            $pushed?->popCurrent();
         }
+
+        $this->isComplete = true;
+    }
+
+    /**
+     * Assigns a real request to a controller with NullHTTPRequest, pushes it onto the controller
+     * stack, and returns it so the caller can pop it in a finally block.
+     *
+     * @param Controller $controller A freshly created controller with NullHTTPRequest.
+     * @return Controller The same controller, now pushed onto the stack.
+     */
+    private function pushControllerWithRequest(Controller $controller): Controller
+    {
+        $request = new HTTPRequest('GET', $this->controllerState['RequestURL'] ?? '/');
+        $request->setSession(new Session([]));
+        $request->setRouteParams($this->controllerState['URLParams'] ?? []);
+
+        $controller->setRequest($request);
+        $controller->pushCurrent();
+        return $controller;
     }
 
 }

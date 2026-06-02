@@ -54,18 +54,37 @@ class AsyncCMSMain extends Extension
             return $record;
         }
 
-        // New records have no DB row yet. Write a minimal row now so the job
-        // can look up the record by a real ID when it runs later.
+        // New records must be persisted before queuing so the job can find
+        // the record by a real ID. write() is required — the job runs with
+        // no draft reading mode and cannot create the first draft version itself.
         if ($record->ID === 0) {
-            // writeWithoutVersion avoids creating a version stub with no form data.
-            $record->writeWithoutVersion();
+            // Set Title before write so the page shows its real name in the
+            // sitetree immediately, not the default "New <ClassName>" placeholder.
+            if (isset($data['Title'])) {
+                $record->Title = $data['Title'];
+            }
+
+            $record->write();
             $data['ID'] = $record->ID;
 
-            // Update the URL params so asyncStoreState() records the real ID,
-            // not the temporary "new-xxx" placeholder.
+            // The job constructor calls asyncStoreState() right after this block,
+            // so URL params must already point to the real ID before that happens.
             $urlParams = $this->owner->getURLParams();
             $urlParams['ID'] = (string) $record->ID;
             $this->owner->setURLParams($urlParams);
+        }
+
+        // Allow project extensions to validate before the job is queued.
+        // Return a non-empty errors array to abort with a CMS toast message.
+        $errors = [];
+        $this->owner->extend('validateBeforeAsyncSave', $record, $data, $errors);
+
+        if (!empty($errors)) {
+            // 400 makes the CMS JS render the toast as an error; 200 shows green.
+            $this->owner->getResponse()
+                ->setStatusCode(400)
+                ->addHeader('X-Status', rawurlencode(implode(' ', $errors)));
+            return $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
         }
 
         $injector = Injector::inst();
@@ -92,7 +111,7 @@ class AsyncCMSMain extends Extension
         $this->owner->getResponse()->addHeader('X-Status', rawurlencode($message));
         $response = $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
         $response->addHeader('X-Reload', true);
-        $response->addHeader('X-ControllerURL', $record->CMSEditLink());
+        $response->addHeader('X-ControllerURL', $record->getCMSEditLink());
 
         return $response;
     }
@@ -107,18 +126,14 @@ class AsyncCMSMain extends Extension
      */
     public function asyncGetRecordAndAssertPermissions(array $data)
     {
-        $className = $this->owner->config()->get('tree_class');
-
-        if (!$className) {
-            $className = $this->owner->config()->get('model_class');
-        }
+        $className = $this->owner->config()->get('model_class');
 
         // Existing or new record?
         $id = $data['ID'];
 
         if (!str_starts_with($id ?? '', 'new')) {
             /** @var SiteTree $record */
-            $record = DataObject::get_by_id($className, $id);
+            $record = DataObject::get($className)->setUseCache(true)->byID($id);
 
             // Check edit permissions
             if ($record && !$record->canEdit()) {
@@ -160,6 +175,8 @@ class AsyncCMSMain extends Extension
     {
         return [
             'URLParams'  => $this->owner->getURLParams(),
+            // RequestURL is used by AsyncSave::process() to build the dummy
+            // HTTPRequest that replaces NullHTTPRequest when the job runs headlessly.
             'RequestURL' => $this->owner->getRequest()->getURL(true),
         ];
     }
