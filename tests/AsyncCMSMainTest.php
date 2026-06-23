@@ -109,7 +109,10 @@ class AsyncCMSMainTest extends SapphireTest
         $controller->setURLParams($urlParams);
         $extension = new AsyncCMSMain();
         $extension->setOwner($controller);
-        $this->assertSame(['URLParams' => $urlParams], $extension->asyncStoreState());
+        $this->assertSame([
+            'URLParams' => $urlParams,
+            'RequestURL' => '',
+        ], $extension->asyncStoreState());
     }
 
     public function testAsyncRestoreState(): void
