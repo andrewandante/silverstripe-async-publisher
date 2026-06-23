@@ -85,6 +85,7 @@ class AsyncSave extends AbstractQueuedJob
         // (e.g. canView() on a draft-only record) pass during job processing.
         if ($this->memberID) {
             $member = Member::get()->byID($this->memberID);
+
             if ($member) {
                 Security::setCurrentUser($member);
             }
@@ -161,6 +162,7 @@ class AsyncSave extends AbstractQueuedJob
 
         $controller->setRequest($request);
         $controller->pushCurrent();
+
         return $controller;
     }
 

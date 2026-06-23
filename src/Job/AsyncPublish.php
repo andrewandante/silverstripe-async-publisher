@@ -90,12 +90,14 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
         if (!$object || !$object->exists()) {
             $this->addMessage('Could not find object');
             $this->isComplete = true;
+
             return;
         }
 
         if (!$object->hasExtension(AsyncPublisherExtension::class)) {
             $this->addMessage('Object does not have AsyncPublisherExtension applied');
             $this->isComplete = true;
+
             return;
         }
 

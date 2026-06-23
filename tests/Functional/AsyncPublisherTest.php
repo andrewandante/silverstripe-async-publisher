@@ -8,9 +8,7 @@ use AndrewAndante\SilverStripe\AsyncPublisher\Job\AsyncSave;
 use SilverStripe\CMS\Controllers\CMSMain;
 use SilverStripe\CMS\Model\SiteTree;
 use SilverStripe\Control\Session;
-use SilverStripe\Core\Extension;
 use SilverStripe\Dev\FunctionalTest;
-use SilverStripe\ORM\DataObject;
 use SilverStripe\Versioned\Versioned;
 use Symbiote\QueuedJobs\DataObjects\QueuedJobDescriptor;
 use Symbiote\QueuedJobs\Services\QueuedJob;
@@ -221,7 +219,9 @@ class AsyncPublisherTest extends FunctionalTest
         $signature = $newPage->generateSignature();
 
         QueuedJobService::singleton()->runJob(
-            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncSave::class, 'Signature' => $signature])->first()->ID
+            QueuedJobDescriptor::get()->filter(
+                ['Implementation' => AsyncSave::class, 'Signature' => $signature]
+            )->first()->ID
         );
 
         $this->assertEquals(
@@ -300,7 +300,9 @@ class AsyncPublisherTest extends FunctionalTest
         $signature = $newPage->generateSignature();
 
         QueuedJobService::singleton()->runJob(
-            QueuedJobDescriptor::get()->filter(['Implementation' => AsyncSave::class, 'Signature' => $signature])->first()->ID
+            QueuedJobDescriptor::get()->filter(
+                ['Implementation' => AsyncSave::class, 'Signature' => $signature]
+            )->first()->ID
         );
 
         $this->assertEquals(
@@ -363,18 +365,4 @@ class AsyncPublisherTest extends FunctionalTest
         $this->assertEquals($jobCountBefore, $jobCountAfter, 'No job should be queued when validation blocks');
     }
 
-}
-
-/**
- * Test double used by testValidateBeforeAsyncSaveAbortsQueuing.
- * Always blocks publish with a dummy error message.
- */
-class ValidateBeforeAsyncSaveTestExtension extends Extension
-{
-    public function validateBeforeAsyncSave(DataObject $record, array $data, array &$errors): void
-    {
-        if (isset($data['publish'])) {
-            $errors[] = 'Test block: publish not allowed.';
-        }
-    }
 }

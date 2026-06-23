@@ -79,11 +79,12 @@ class AsyncCMSMain extends Extension
         $errors = [];
         $this->owner->extend('validateBeforeAsyncSave', $record, $data, $errors);
 
-        if (!empty($errors)) {
+        if ($errors !== []) {
             // 400 makes the CMS JS render the toast as an error; 200 shows green.
             $this->owner->getResponse()
                 ->setStatusCode(400)
                 ->addHeader('X-Status', rawurlencode(implode(' ', $errors)));
+
             return $this->owner->getResponseNegotiator()->respond($this->owner->getRequest());
         }
 
@@ -174,7 +175,7 @@ class AsyncCMSMain extends Extension
     public function asyncStoreState(): array
     {
         return [
-            'URLParams'  => $this->owner->getURLParams(),
+            'URLParams' => $this->owner->getURLParams(),
             // RequestURL is used by AsyncSave::process() to build the dummy
             // HTTPRequest that replaces NullHTTPRequest when the job runs headlessly.
             'RequestURL' => $this->owner->getRequest()->getURL(true),
