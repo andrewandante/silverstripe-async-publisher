@@ -77,6 +77,8 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
     public function process()
     {
         // Restore the member who queued the job so permission checks pass.
+        $previousUser = Security::getCurrentUser();
+
         if ($this->memberID) {
             $member = Member::get()->byID($this->memberID);
 
@@ -85,38 +87,42 @@ class AsyncPublish extends AbstractQueuedJob implements QueuedJob
             }
         }
 
-        $object = DataObject::get($this->objectClass)->byID($this->objectID);
-
-        if (!$object || !$object->exists()) {
-            $this->addMessage('Could not find object');
-            $this->isComplete = true;
-
-            return;
-        }
-
-        if (!$object->hasExtension(AsyncPublisherExtension::class)) {
-            $this->addMessage('Object does not have AsyncPublisherExtension applied');
-            $this->isComplete = true;
-
-            return;
-        }
-
-        $controller = Controller::curr() === null ? $this->createDummyController() : null;
-
         try {
-            $object->doPublishRecursive();
-            $this->addMessage(_t(
-                self::class . '.PUBLISHED',
-                "Published '{title}' from queue successfully.",
-                ['title' => $object->Title]
-            ));
-        } finally {
-            if ($controller) {
-                $controller->popCurrent();
-            }
-        }
+            $object = DataObject::get($this->objectClass)->byID($this->objectID);
 
-        $this->isComplete = true;
+            if (!$object || !$object->exists()) {
+                $this->addMessage('Could not find object');
+                $this->isComplete = true;
+
+                return;
+            }
+
+            if (!$object->hasExtension(AsyncPublisherExtension::class)) {
+                $this->addMessage('Object does not have AsyncPublisherExtension applied');
+                $this->isComplete = true;
+
+                return;
+            }
+
+            $controller = Controller::curr() === null ? $this->createDummyController() : null;
+
+            try {
+                $object->doPublishRecursive();
+                $this->addMessage(_t(
+                    self::class . '.PUBLISHED',
+                    "Published '{title}' from queue successfully.",
+                    ['title' => $object->Title]
+                ));
+            } finally {
+                if ($controller) {
+                    $controller->popCurrent();
+                }
+            }
+
+            $this->isComplete = true;
+        } finally {
+            Security::setCurrentUser($previousUser);
+        }
     }
 
     /**

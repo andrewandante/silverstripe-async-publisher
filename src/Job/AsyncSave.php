@@ -83,6 +83,8 @@ class AsyncSave extends AbstractQueuedJob
     {
         // Restore the member who queued the job so that CMS permission checks
         // (e.g. canView() on a draft-only record) pass during job processing.
+        $previousUser = Security::getCurrentUser();
+
         if ($this->memberID) {
             $member = Member::get()->byID($this->memberID);
 
@@ -142,6 +144,7 @@ class AsyncSave extends AbstractQueuedJob
             $this->addMessage($message);
         } finally {
             $pushed?->popCurrent();
+            Security::setCurrentUser($previousUser);
         }
 
         $this->isComplete = true;
