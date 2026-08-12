@@ -4,6 +4,7 @@ namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
+use SilverStripe\Control\HTTPResponse;
 use SilverStripe\Control\NullHTTPRequest;
 use SilverStripe\Control\Session;
 use SilverStripe\Core\Injector\Injector;
@@ -109,6 +110,16 @@ class AsyncSave extends AbstractQueuedJob
             $form->loadDataFrom($this->submission);
 
             $record = $controller->asyncGetRecordAndAssertPermissions($this->submission);
+
+            // Permissions were re-checked as of now (not when the job was queued) and failed -
+            // e.g. the member's rights were revoked in the meantime. Fail cleanly instead of
+            // operating on the HTTPResponse as though it were the record.
+            if ($record instanceof HTTPResponse) {
+                $this->addMessage('Permission denied when re-checked during job processing');
+                $this->isComplete = true;
+
+                return;
+            }
 
             // TODO Coupling to SiteTree
             $record->HasBrokenLink = 0;
