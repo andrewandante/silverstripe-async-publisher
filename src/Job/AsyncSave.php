@@ -4,6 +4,7 @@ namespace AndrewAndante\SilverStripe\AsyncPublisher\Job;
 
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
+use SilverStripe\Control\HTTPResponse;
 use SilverStripe\Control\NullHTTPRequest;
 use SilverStripe\Control\Session;
 use SilverStripe\Core\Injector\Injector;
@@ -83,6 +84,8 @@ class AsyncSave extends AbstractQueuedJob
     {
         // Restore the member who queued the job so that CMS permission checks
         // (e.g. canView() on a draft-only record) pass during job processing.
+        $previousUser = Security::getCurrentUser();
+
         if ($this->memberID) {
             $member = Member::get()->byID($this->memberID);
 
@@ -107,6 +110,16 @@ class AsyncSave extends AbstractQueuedJob
             $form->loadDataFrom($this->submission);
 
             $record = $controller->asyncGetRecordAndAssertPermissions($this->submission);
+
+            // Permissions were re-checked as of now (not when the job was queued) and failed -
+            // e.g. the member's rights were revoked in the meantime. Fail cleanly instead of
+            // operating on the HTTPResponse as though it were the record.
+            if ($record instanceof HTTPResponse) {
+                $this->addMessage('Permission denied when re-checked during job processing');
+                $this->isComplete = true;
+
+                return;
+            }
 
             // TODO Coupling to SiteTree
             $record->HasBrokenLink = 0;
@@ -142,6 +155,7 @@ class AsyncSave extends AbstractQueuedJob
             $this->addMessage($message);
         } finally {
             $pushed?->popCurrent();
+            Security::setCurrentUser($previousUser);
         }
 
         $this->isComplete = true;
