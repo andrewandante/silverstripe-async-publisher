@@ -28,8 +28,20 @@ class AsyncPublisherExtension extends Extension
             return;
         }
 
-        $verb = $isWriting ? _t(self::class . '.WRITING', 'writing') : _t(self::class . '.PUBLISHING', 'publishing');
-        $historicData = $isWriting ? _t(self::class . '.HISTORIC_DATA', ' - fields show historic content') : '';
+        // A pending AsyncSave job may also publish once it runs (queued via the "Queue Publish"
+        // button) - that flag lives only in the job's serialised data, not a queryable column.
+        $willAlsoPublish = $isWriting && $this->pendingAsyncSaveWillPublish();
+
+        if ($isWriting) {
+            $verb = $willAlsoPublish
+                ? _t(self::class . '.SAVING_AND_PUBLISHING', 'saving and publishing')
+                : _t(self::class . '.WRITING', 'writing');
+            $historicData = _t(self::class . '.HISTORIC_DATA', ' - fields show historic content');
+        } else {
+            $verb = _t(self::class . '.PUBLISHING', 'publishing');
+            $historicData = '';
+        }
+
         $queuedMessage = _t(
             self::class . '.PENDING_JOBS_WARNING',
             'This {ObjectType} is currently queued for {ActionType}{HistoricData}.
@@ -187,6 +199,40 @@ class AsyncPublisherExtension extends Extension
                 QueuedJob::STATUS_RUN,
             ],
         ])->exists();
+    }
+
+    /**
+     * Whether any currently pending AsyncSave job for this record was queued with the publish
+     * flag set (i.e. queued via the "Queue Publish" button rather than "Queue Save").
+     *
+     * The andPublish flag isn't a queryable column on QueuedJobDescriptor - it only exists inside
+     * the job's own serialised SavedJobData - so this decodes it directly instead. Coupled to
+     * queued-jobs' own serialisation format {@see QueuedJobService::copyJobToDescriptor()}.
+     *
+     * @return bool
+     */
+    public function pendingAsyncSaveWillPublish(): bool
+    {
+        $descriptors = QueuedJobDescriptor::get()->filter([
+            'Implementation' => AsyncSave::class,
+            'Signature' => $this->generateSignature(),
+            'JobStatus' => [
+                QueuedJob::STATUS_NEW,
+                QueuedJob::STATUS_INIT,
+                QueuedJob::STATUS_WAIT,
+                QueuedJob::STATUS_RUN,
+            ],
+        ]);
+
+        foreach ($descriptors as $descriptor) {
+            $jobData = @unserialize($descriptor->SavedJobData ?? '');
+
+            if (isset($jobData->andPublish) && $jobData->andPublish) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

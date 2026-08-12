@@ -55,6 +55,47 @@ class AsyncPublisherExtensionTest extends SapphireTest
         $this->assertTrue($page->pendingAsyncJobsExist());
     }
 
+    public function testPendingAsyncSaveWillPublishReflectsTheAndPublishFlag(): void
+    {
+        $page = new TestPage();
+        $page->Title = 'Initial page name';
+        $page->write();
+
+        $this->assertFalse($page->pendingAsyncSaveWillPublish());
+
+        $controller = new Controller();
+        $details = $page->toMap();
+        $details['Title'] = 'Updated Heading';
+        $job = new AsyncSave($controller, 'Form', $details, $page->generateSignature());
+
+        $queueService = new QueuedJobService();
+        $queueService->queueHandler = new DefaultQueueHandler();
+        $queueService->queueJob($job);
+
+        // Queued via "Queue Save" (no publish flag in the submission) - should not report as publishing.
+        $this->assertFalse($page->pendingAsyncSaveWillPublish());
+    }
+
+    public function testPendingAsyncSaveWillPublishIsTrueWhenQueuedViaPublish(): void
+    {
+        $page = new TestPage();
+        $page->Title = 'Initial page name';
+        $page->write();
+
+        $controller = new Controller();
+        $details = $page->toMap();
+        $details['Title'] = 'Updated Heading';
+        $details['publish'] = 1;
+        $job = new AsyncSave($controller, 'Form', $details, $page->generateSignature());
+
+        $queueService = new QueuedJobService();
+        $queueService->queueHandler = new DefaultQueueHandler();
+        $queueService->queueJob($job);
+
+        // Queued via "Queue Publish" (publish flag present in the submission) - should report as publishing.
+        $this->assertTrue($page->pendingAsyncSaveWillPublish());
+    }
+
     public function testPendingAsyncJobsExistWithAsyncPublish(): void
     {
         $page = new TestPage();
