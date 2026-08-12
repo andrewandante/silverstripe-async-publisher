@@ -184,6 +184,7 @@ class AsyncPublisherExtension extends Extension
                 QueuedJob::STATUS_NEW,
                 QueuedJob::STATUS_INIT,
                 QueuedJob::STATUS_WAIT,
+                QueuedJob::STATUS_RUN,
             ],
         ])->exists();
     }
